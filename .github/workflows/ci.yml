@@ -92,3 +92,22 @@ jobs:
 
       - name: Run tests
         run: npm test -- --runInBand --no-watchman
+
+  docker-build:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build production Docker image
+        run: |
+          docker build \
+            --target production \
+            --tag wallet-api:${{ github.sha }} \
+            .
+
+      - name: Verify Docker image
+        run: |
+          docker image inspect wallet-api:${{ github.sha }} \
+            --format='user={{.Config.User}} port={{json .Config.ExposedPorts}} command={{json .Config.Cmd}}'
