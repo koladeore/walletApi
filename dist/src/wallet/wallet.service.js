@@ -129,9 +129,15 @@ let WalletService = class WalletService {
                     receiverId: receiver.id,
                 };
             });
-            this.emailService.sendTransferReceipt(result.senderEmail, amount, result.receiverEmail).catch(console.error);
-            this.emailService.sendTransferReceivedEmail(result.receiverEmail, amount, result.senderEmail).catch(console.error);
-            this.notificationService.notifyTransferReceived(result.receiverId, amount, result.senderEmail).catch(console.error);
+            this.emailService
+                .sendTransferReceipt(result.senderEmail, amount, result.receiverEmail)
+                .catch(console.error);
+            this.emailService
+                .sendTransferReceivedEmail(result.receiverEmail, amount, result.senderEmail)
+                .catch(console.error);
+            this.notificationService
+                .notifyTransferReceived(result.receiverId, amount, result.senderEmail)
+                .catch(console.error);
             return result.transactionRecord;
         }
         catch (error) {
@@ -151,10 +157,7 @@ let WalletService = class WalletService {
             throw new common_1.NotFoundException('Wallet not found');
         }
         const where = {
-            OR: [
-                { senderWalletId: wallet.id },
-                { receiverWalletId: wallet.id },
-            ],
+            OR: [{ senderWalletId: wallet.id }, { receiverWalletId: wallet.id }],
         };
         if (type) {
             where.type = type;

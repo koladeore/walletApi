@@ -20,16 +20,14 @@ let AllExceptionsFilter = class AllExceptionsFilter {
     catch(exception, host) {
         const { httpAdapter } = this.httpAdapterHost;
         const ctx = host.switchToHttp();
-        const httpStatus = exception instanceof common_1.HttpException
-            ? exception.getStatus()
-            : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
+        const request = ctx.getRequest();
+        const requestUrl = httpAdapter.getRequestUrl(request);
+        const httpStatus = exception instanceof common_1.HttpException ? exception.getStatus() : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
         const responseBody = {
             statusCode: httpStatus,
             timestamp: new Date().toISOString(),
-            path: httpAdapter.getRequestUrl(ctx.getRequest()),
-            message: exception instanceof common_1.HttpException
-                ? exception.getResponse()
-                : 'Internal server error',
+            path: typeof requestUrl === 'string' ? requestUrl : '',
+            message: exception instanceof common_1.HttpException ? exception.getResponse() : 'Internal server error',
         };
         httpAdapter.reply(ctx.getResponse(), responseBody, httpStatus);
     }

@@ -20,27 +20,18 @@ import { NotificationModule } from './notification/notification.module';
     }),
     LoggerModule.forRoot({
       pinoHttp: {
-        customProps: (_req, _res) => ({
+        customProps: () => ({
           context: 'HTTP',
         }),
-        serializers: {
-          req: (req) => ({
-            id: req.id,
-            method: req.method,
-            url: req.url,
-          }),
-          res: (res) => ({
-            statusCode: res.statusCode,
-          }),
-        },
-        transport: process.env.NODE_ENV !== 'production'
-          ? {
-            target: 'pino-pretty',
-            options: {
-              singleLine: true,
-            }
-          }
-          : undefined,
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? {
+                target: 'pino-pretty',
+                options: {
+                  singleLine: true,
+                },
+              }
+            : undefined,
       },
     }),
     PrismaModule,
@@ -55,10 +46,12 @@ import { NotificationModule } from './notification/notification.module';
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
       },
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 10,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
   ],
   controllers: [AppController],
   providers: [
@@ -69,6 +62,4 @@ import { NotificationModule } from './notification/notification.module';
     },
   ],
 })
-export class AppModule { }
-
-
+export class AppModule {}

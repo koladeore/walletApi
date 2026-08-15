@@ -132,7 +132,7 @@ let AuthService = class AuthService {
             });
             return this.generateTokens(user);
         }
-        catch (e) {
+        catch {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
     }
@@ -155,7 +155,7 @@ let AuthService = class AuthService {
                 }
             }
         }
-        catch (e) {
+        catch {
         }
     }
 };

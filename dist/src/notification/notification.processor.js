@@ -12,7 +12,7 @@ const bullmq_1 = require("@nestjs/bullmq");
 const common_1 = require("@nestjs/common");
 let NotificationProcessor = NotificationProcessor_1 = class NotificationProcessor extends bullmq_1.WorkerHost {
     logger = new common_1.Logger(NotificationProcessor_1.name);
-    async process(job) {
+    process(job) {
         this.logger.log(`Processing notification job: ${job.name} (ID: ${job.id})`);
         try {
             switch (job.name) {
@@ -27,6 +27,7 @@ let NotificationProcessor = NotificationProcessor_1 = class NotificationProcesso
             this.logger.error(`Failed to process job ${job.id}`, error);
             throw error;
         }
+        return Promise.resolve();
     }
 };
 exports.NotificationProcessor = NotificationProcessor;

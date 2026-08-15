@@ -4,6 +4,25 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+interface WelcomeEmailData {
+  email: string;
+  name: string;
+}
+
+interface TransferReceiptData {
+  email: string;
+  amount: number;
+  receiverEmail: string;
+}
+
+interface TransferIncomingData {
+  email: string;
+  amount: number;
+  senderEmail: string;
+}
+
+type EmailJobData = WelcomeEmailData | TransferReceiptData | TransferIncomingData;
+
 @Processor('email')
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
@@ -16,19 +35,19 @@ export class EmailProcessor extends WorkerHost {
     this.resend = new Resend(resendApiKey || 're_mock_key1234');
   }
 
-  async process(job: Job<any, any, string>): Promise<any> {
+  async process(job: Job<EmailJobData, void, string>): Promise<void> {
     this.logger.log(`Processing email job: ${job.name} (ID: ${job.id})`);
 
     try {
       switch (job.name) {
         case 'welcome-email':
-          await this.handleWelcomeEmail(job.data);
+          await this.handleWelcomeEmail(job.data as WelcomeEmailData);
           break;
         case 'transfer-receipt':
-          await this.handleTransferReceipt(job.data);
+          await this.handleTransferReceipt(job.data as TransferReceiptData);
           break;
         case 'transfer-incoming':
-          await this.handleTransferIncoming(job.data);
+          await this.handleTransferIncoming(job.data as TransferIncomingData);
           break;
         default:
           this.logger.warn(`Unknown job name: ${job.name}`);
@@ -164,7 +183,11 @@ export class EmailProcessor extends WorkerHost {
     });
   }
 
-  private async handleTransferReceipt(data: { email: string; amount: number; receiverEmail: string }) {
+  private async handleTransferReceipt(data: {
+    email: string;
+    amount: number;
+    receiverEmail: string;
+  }) {
     if (!this.configService.get('RESEND_API_KEY')) {
       this.logger.log(`[SIMULATED] Sending transfer receipt to ${data.email}`);
       return;
@@ -202,7 +225,11 @@ export class EmailProcessor extends WorkerHost {
     });
   }
 
-  private async handleTransferIncoming(data: { email: string; amount: number; senderEmail: string }) {
+  private async handleTransferIncoming(data: {
+    email: string;
+    amount: number;
+    senderEmail: string;
+  }) {
     if (!this.configService.get('RESEND_API_KEY')) {
       this.logger.log(`[SIMULATED] Sending incoming funds email to ${data.email}`);
       return;
@@ -240,4 +267,3 @@ export class EmailProcessor extends WorkerHost {
     });
   }
 }
-

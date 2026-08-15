@@ -12,4 +12,4 @@ import { NotificationProcessor } from './notification.processor';
   providers: [NotificationService, NotificationProcessor],
   exports: [NotificationService],
 })
-export class NotificationModule { }
+export class NotificationModule {}

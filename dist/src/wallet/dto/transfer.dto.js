@@ -28,7 +28,7 @@ __decorate([
 ], TransferDto.prototype, "receiverEmail", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 50.00,
+        example: 50.0,
         description: 'The amount to transfer',
     }),
     (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),

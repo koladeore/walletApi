@@ -45,7 +45,6 @@ export class UsersService {
     });
   }
 
-
   async create(data: Prisma.UserCreateInput): Promise<User> {
     const existingUser = await this.findByEmail(data.email);
     if (existingUser) {
@@ -78,11 +77,12 @@ export class UsersService {
     });
 
     // Fire off async welcome email without waiting
-    this.emailService.sendWelcomeEmail(createdUser.email, createdUser.firstName || 'User').catch((err) => {
-      console.error('Failed to queue welcome email', err);
-    });
+    this.emailService
+      .sendWelcomeEmail(createdUser.email, createdUser.firstName || 'User')
+      .catch((err) => {
+        console.error('Failed to queue welcome email', err);
+      });
 
     return createdUser;
   }
 }
-

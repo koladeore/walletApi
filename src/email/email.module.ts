@@ -12,4 +12,4 @@ import { EmailProcessor } from './email.processor';
   providers: [EmailService, EmailProcessor],
   exports: [EmailService],
 })
-export class EmailModule { }
+export class EmailModule {}

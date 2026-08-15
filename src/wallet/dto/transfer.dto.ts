@@ -11,7 +11,7 @@ export class TransferDto {
   receiverEmail!: string;
 
   @ApiProperty({
-    example: 50.00,
+    example: 50.0,
     description: 'The amount to transfer',
   })
   @IsNumber({ maxDecimalPlaces: 2 })

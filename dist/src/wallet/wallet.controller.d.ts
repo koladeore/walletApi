@@ -2,10 +2,11 @@ import { WalletService } from './wallet.service';
 import { FundWalletDto } from './dto/fund-wallet.dto';
 import { TransferDto } from './dto/transfer.dto';
 import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto';
+import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 export declare class WalletController {
     private readonly walletService;
     constructor(walletService: WalletService);
-    fundWallet(req: any, dto: FundWalletDto, idempotencyKey: string): Promise<{
+    fundWallet(req: AuthenticatedRequest, dto: FundWalletDto, idempotencyKey: string): Promise<{
         wallet: {
             id: string;
             createdAt: Date;
@@ -27,7 +28,7 @@ export declare class WalletController {
             receiverWalletId: string | null;
         };
     }>;
-    transfer(req: any, dto: TransferDto, idempotencyKey: string): Promise<{
+    transfer(req: AuthenticatedRequest, dto: TransferDto, idempotencyKey: string): Promise<{
         type: import("@prisma/client").$Enums.TransactionType;
         id: string;
         createdAt: Date;
@@ -39,7 +40,7 @@ export declare class WalletController {
         senderWalletId: string | null;
         receiverWalletId: string | null;
     }>;
-    getTransactions(req: any, query: TransactionHistoryQueryDto): Promise<{
+    getTransactions(req: AuthenticatedRequest, query: TransactionHistoryQueryDto): Promise<{
         data: {
             type: import("@prisma/client").$Enums.TransactionType;
             id: string;

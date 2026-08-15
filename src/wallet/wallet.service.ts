@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto';
@@ -55,10 +60,12 @@ export class WalletService {
 
         return { wallet: updatedWallet, transaction };
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Prisma unique constraint error code (P2002) for duplicate referenceId (idempotency key)
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('A transaction with this idempotency key has already been processed');
+        throw new ConflictException(
+          'A transaction with this idempotency key has already been processed',
+        );
       }
       throw error;
     }
@@ -67,7 +74,12 @@ export class WalletService {
   /**
    * Transfer funds from one user to another
    */
-  async transferFunds(senderId: string, receiverEmail: string, amount: number, idempotencyKey: string) {
+  async transferFunds(
+    senderId: string,
+    receiverEmail: string,
+    amount: number,
+    idempotencyKey: string,
+  ) {
     if (amount <= 0) {
       throw new BadRequestException('Transfer amount must be greater than zero');
     }
@@ -102,8 +114,10 @@ export class WalletService {
         const receiverWallet = receiver.wallet;
 
         // Ensure predictable locking order to avoid deadlocks (lock smaller ID first)
-        const firstLockId = senderWallet.id < receiverWallet.id ? senderWallet.id : receiverWallet.id;
-        const secondLockId = senderWallet.id < receiverWallet.id ? receiverWallet.id : senderWallet.id;
+        const firstLockId =
+          senderWallet.id < receiverWallet.id ? senderWallet.id : receiverWallet.id;
+        const secondLockId =
+          senderWallet.id < receiverWallet.id ? receiverWallet.id : senderWallet.id;
 
         // Lock wallets rows mapping FOR UPDATE
         await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${firstLockId} FOR UPDATE`;
@@ -157,14 +171,22 @@ export class WalletService {
       });
 
       // Fire off background jobs
-      this.emailService.sendTransferReceipt(result.senderEmail, amount, result.receiverEmail).catch(console.error);
-      this.emailService.sendTransferReceivedEmail(result.receiverEmail, amount, result.senderEmail).catch(console.error);
-      this.notificationService.notifyTransferReceived(result.receiverId, amount, result.senderEmail).catch(console.error);
+      this.emailService
+        .sendTransferReceipt(result.senderEmail, amount, result.receiverEmail)
+        .catch(console.error);
+      this.emailService
+        .sendTransferReceivedEmail(result.receiverEmail, amount, result.senderEmail)
+        .catch(console.error);
+      this.notificationService
+        .notifyTransferReceived(result.receiverId, amount, result.senderEmail)
+        .catch(console.error);
 
       return result.transactionRecord;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException('A transaction with this idempotency key has already been processed');
+        throw new ConflictException(
+          'A transaction with this idempotency key has already been processed',
+        );
       }
       throw error;
     }
@@ -188,10 +210,7 @@ export class WalletService {
 
     // Build the dynamic where clause
     const where: Prisma.TransactionWhereInput = {
-      OR: [
-        { senderWalletId: wallet.id },
-        { receiverWalletId: wallet.id },
-      ],
+      OR: [{ senderWalletId: wallet.id }, { receiverWalletId: wallet.id }],
     };
 
     if (type) {

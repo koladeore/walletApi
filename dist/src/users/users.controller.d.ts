@@ -1,8 +1,9 @@
 import { UsersService } from './users.service';
+import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);
-    getProfile(req: any): Promise<{
+    getProfile(req: AuthenticatedRequest): Promise<{
         email: string;
         id: string;
         firstName: string | null;
@@ -11,7 +12,7 @@ export declare class UsersController {
         createdAt: Date;
         updatedAt: Date;
     }>;
-    getWallet(req: any): Promise<{
+    getWallet(req: AuthenticatedRequest): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;

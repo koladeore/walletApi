@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -10,6 +7,11 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -40,7 +42,7 @@ export class AuthService {
 
   async generateTokens(user: User) {
     const payload = { sub: user.id, email: user.email };
-    
+
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload),
       this.jwtService.signAsync(payload, {
@@ -75,7 +77,7 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string) {
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
         secret: this.configService.get('REFRESH_SECRET'),
       });
 
@@ -108,7 +110,7 @@ export class AuthService {
       });
 
       return this.generateTokens(user);
-    } catch (e) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -118,7 +120,7 @@ export class AuthService {
     // Since it's hashed, we have to iterate or find by some other identifier if we had one
     // For simplicity, we'll try to find any match
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
         secret: this.configService.get('REFRESH_SECRET'),
       });
 
@@ -136,7 +138,7 @@ export class AuthService {
           break;
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore errors on logout
     }
   }

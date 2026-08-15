@@ -32,25 +32,15 @@ exports.AppModule = AppModule = __decorate([
             }),
             nestjs_pino_1.LoggerModule.forRoot({
                 pinoHttp: {
-                    customProps: (_req, _res) => ({
+                    customProps: () => ({
                         context: 'HTTP',
                     }),
-                    serializers: {
-                        req: (req) => ({
-                            id: req.id,
-                            method: req.method,
-                            url: req.url,
-                        }),
-                        res: (res) => ({
-                            statusCode: res.statusCode,
-                        }),
-                    },
                     transport: process.env.NODE_ENV !== 'production'
                         ? {
                             target: 'pino-pretty',
                             options: {
                                 singleLine: true,
-                            }
+                            },
                         }
                         : undefined,
                 },
@@ -67,10 +57,12 @@ exports.AppModule = AppModule = __decorate([
                     port: parseInt(process.env.REDIS_PORT || '6379', 10),
                 },
             }),
-            throttler_1.ThrottlerModule.forRoot([{
+            throttler_1.ThrottlerModule.forRoot([
+                {
                     ttl: 60000,
                     limit: 10,
-                }]),
+                },
+            ]),
         ],
         controllers: [app_controller_1.AppController],
         providers: [

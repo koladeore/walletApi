@@ -1,6 +1,12 @@
 import { WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+interface TransferReceivedData {
+    userId: string;
+    amount: number;
+    senderEmail: string;
+}
 export declare class NotificationProcessor extends WorkerHost {
     private readonly logger;
-    process(job: Job<any, any, string>): Promise<any>;
+    process(job: Job<TransferReceivedData, void, string>): Promise<void>;
 }
+export {};

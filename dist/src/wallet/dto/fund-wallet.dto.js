@@ -18,7 +18,7 @@ class FundWalletDto {
 exports.FundWalletDto = FundWalletDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 100.50,
+        example: 100.5,
         description: 'The amount to fund the wallet with',
     }),
     (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),

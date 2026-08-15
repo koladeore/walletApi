@@ -107,7 +107,9 @@ let UsersService = class UsersService {
             });
             return user;
         });
-        this.emailService.sendWelcomeEmail(createdUser.email, createdUser.firstName || 'User').catch((err) => {
+        this.emailService
+            .sendWelcomeEmail(createdUser.email, createdUser.firstName || 'User')
+            .catch((err) => {
             console.error('Failed to queue welcome email', err);
         });
         return createdUser;
