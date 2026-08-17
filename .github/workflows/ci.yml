@@ -96,6 +96,13 @@ jobs:
   docker-build:
     needs: test-and-build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-1
+      ECR_REGISTRY: 284267329100.dkr.ecr.us-east-1.amazonaws.com
+      ECR_REPOSITORY: wallet-api
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -111,3 +118,32 @@ jobs:
         run: |
           docker image inspect wallet-api:${{ github.sha }} \
             --format='user={{.Config.User}} port={{json .Config.ExposedPorts}} command={{json .Config.Cmd}}'
+
+      - name: Configure temporary AWS credentials
+        if: github.event_name == 'push'
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: arn:aws:iam::284267329100:role/GitHubActionsWalletApiEcrPush
+          role-session-name: wallet-api-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '284267329100'
+
+      - name: Log in to Amazon ECR
+        if: github.event_name == 'push'
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login \
+                --username AWS \
+                --password-stdin "$ECR_REGISTRY"
+
+      - name: Tag and push image to Amazon ECR
+        if: github.event_name == 'push'
+        run: |
+          docker tag \
+            wallet-api:${{ github.sha }} \
+            "$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+          docker tag \
+            wallet-api:${{ github.sha }} \
+            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
