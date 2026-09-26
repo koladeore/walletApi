@@ -14,6 +14,8 @@ const userProfileSelect = {
   updatedAt: true,
 } satisfies Prisma.UserSelect;
 
+type PublicUser = Prisma.UserGetPayload<{ select: typeof userProfileSelect }>;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -54,7 +56,7 @@ export class UsersService {
     });
   }
 
-  async create(data: Prisma.UserCreateInput): Promise<User> {
+  async create(data: Prisma.UserCreateInput): Promise<PublicUser> {
     const existingUser = await this.findByEmail(data.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
@@ -71,6 +73,7 @@ export class UsersService {
           ...data,
           password: hashedPassword,
         },
+        select: userProfileSelect,
       });
 
       // Auto-create wallet
