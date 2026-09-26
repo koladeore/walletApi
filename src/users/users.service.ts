@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
+import { RegisterDto } from '../auth/dto/register.dto';
 
 const userProfileSelect = {
   id: true,
@@ -56,7 +57,14 @@ export class UsersService {
     });
   }
 
-  async create(data: Prisma.UserCreateInput): Promise<PublicUser> {
+  async lookupRecipient(email: string) {
+    return this.prisma.user.findFirst({
+      where: { email, isActive: true, wallet: { isNot: null } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+  }
+
+  async create(data: RegisterDto): Promise<PublicUser> {
     const existingUser = await this.findByEmail(data.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
@@ -70,8 +78,11 @@ export class UsersService {
     const createdUser = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
-          ...data,
+          email: data.email,
+          firstName: data.firstName,
+          lastName: data.lastName,
           password: hashedPassword,
+          role: 'USER',
         },
         select: userProfileSelect,
       });

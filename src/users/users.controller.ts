@@ -6,11 +6,16 @@ import {
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Post,
+  Body,
+  HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { RecipientLookupDto } from './dto/recipient-lookup.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -20,7 +25,9 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all users' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'Get all users (admin only)' })
+  @ApiResponse({ status: 403, description: 'Administrator access required.' })
   @ApiResponse({ status: 200, description: 'User profiles retrieved successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async getAllUsers() {
@@ -51,8 +58,23 @@ export class UsersController {
     return wallet;
   }
 
+  @Post('recipient-lookup')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Look up an active wallet recipient by exact email' })
+  @ApiResponse({ status: 200, description: 'Recipient ID, first name and last name only.' })
+  @ApiResponse({ status: 400, description: 'Invalid email.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 404, description: 'Recipient not found.' })
+  async lookupRecipient(@Body() dto: RecipientLookupDto) {
+    const recipient = await this.usersService.lookupRecipient(dto.email);
+    if (!recipient) throw new NotFoundException('Recipient not found');
+    return recipient;
+  }
+
   @Get(':id')
-  @ApiOperation({ summary: 'Get user by ID' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'Get user by ID (admin only)' })
+  @ApiResponse({ status: 403, description: 'Administrator access required.' })
   @ApiResponse({ status: 200, description: 'User profile retrieved successfully.' })
   @ApiResponse({ status: 400, description: 'Invalid user ID.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })

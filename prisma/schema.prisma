@@ -12,6 +12,11 @@ enum TransactionType {
   TRANSFER
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum TransactionStatus {
   PENDING
   SUCCESS
@@ -25,6 +30,7 @@ model User {
   firstName    String?
   lastName     String?
   isActive     Boolean      @default(true)
+  role         Role         @default(USER)
   
   wallet       Wallet?
   authTokens   AuthToken[]

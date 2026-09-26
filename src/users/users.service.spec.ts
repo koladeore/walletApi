@@ -24,6 +24,7 @@ describe('UsersService registration', () => {
   };
   let service: UsersService;
   const findUnique = jest.fn();
+  const findFirst = jest.fn();
   const createUser = jest.fn<Promise<Record<string, unknown>>, [Prisma.UserCreateArgs]>();
   const createWallet = jest.fn();
   const transaction = jest.fn();
@@ -52,7 +53,10 @@ describe('UsersService registration', () => {
     const module = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: PrismaService, useValue: { user: { findUnique }, $transaction: transaction } },
+        {
+          provide: PrismaService,
+          useValue: { user: { findUnique, findFirst }, $transaction: transaction },
+        },
         { provide: EmailService, useValue: { sendWelcomeEmail } },
       ],
     }).compile();
@@ -66,7 +70,7 @@ describe('UsersService registration', () => {
     expect(JSON.stringify(result)).not.toContain(input.password);
     const args = createUser.mock.calls[0][0];
     expect(createUser).toHaveBeenCalledWith({
-      data: { ...input, password: args.data.password },
+      data: { ...input, password: args.data.password, role: 'USER' },
       select: {
         id: true,
         email: true,
@@ -90,5 +94,20 @@ describe('UsersService registration', () => {
     await expect(service.create(input)).rejects.toThrow(ConflictException);
     expect(transaction).not.toHaveBeenCalled();
     expect(sendWelcomeEmail).not.toHaveBeenCalled();
+  });
+  it('does not allow registration input to grant admin privileges', async () => {
+    await service.create({ ...input, role: 'ADMIN', isActive: false } as typeof input);
+    const args = createUser.mock.calls[0][0];
+    expect(args.data.role).toBe('USER');
+    expect(args.data).not.toHaveProperty('isActive');
+  });
+
+  it('looks up only active wallet holders and selects minimal recipient fields', async () => {
+    findFirst.mockResolvedValue(null);
+    await expect(service.lookupRecipient('recipient@example.com')).resolves.toBeNull();
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { email: 'recipient@example.com', isActive: true, wallet: { isNot: null } },
+      select: { id: true, firstName: true, lastName: true },
+    });
   });
 });
