@@ -4,6 +4,16 @@ import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
 
+const userProfileSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -26,17 +36,16 @@ export class UsersService {
   async getProfile(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: userProfileSelect,
     });
     return user;
+  }
+
+  async getAllUsers() {
+    return this.prisma.user.findMany({
+      select: userProfileSelect,
+      orderBy: { id: 'asc' },
+    });
   }
 
   async getWallet(userId: string) {
