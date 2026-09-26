@@ -11,6 +11,7 @@ import { User } from '@prisma/client';
 interface JwtPayload {
   sub: string;
   email: string;
+  authVersion?: number;
 }
 
 @Injectable()
@@ -28,7 +29,7 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user) {
+    if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -41,7 +42,11 @@ export class AuthService {
   }
 
   async generateTokens(user: User) {
-    const payload = { sub: user.id, email: user.email };
+    if (!user.isActive) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = { sub: user.id, email: user.email, authVersion: user.authVersion };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload),
@@ -82,7 +87,8 @@ export class AuthService {
       });
 
       const user = await this.usersService.findById(payload.sub);
-      if (!user) throw new UnauthorizedException();
+      if (!user || !user.isActive) throw new UnauthorizedException();
+      if ((payload.authVersion ?? 0) !== user.authVersion) throw new UnauthorizedException();
 
       // Find token in DB
       const dbTokens = await this.prisma.authToken.findMany({

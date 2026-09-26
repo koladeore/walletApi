@@ -9,6 +9,7 @@ import {
   Post,
   Body,
   HttpCode,
+  Patch,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { RecipientLookupDto } from './dto/recipient-lookup.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -85,5 +87,21 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  @Patch(':id/status')
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'Activate or deactivate a user (admin only)' })
+  @ApiResponse({ status: 200, description: 'Updated public user profile.' })
+  @ApiResponse({ status: 400, description: 'Invalid request or self-deactivation.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 403, description: 'Administrator access required.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  updateStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateUserStatusDto,
+  ) {
+    return this.usersService.updateStatus(req.user.id, id, dto);
   }
 }

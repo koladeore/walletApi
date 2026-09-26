@@ -1,9 +1,16 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 const userProfileSelect = {
   id: true,
@@ -107,5 +114,51 @@ export class UsersService {
       });
 
     return createdUser;
+  }
+
+  async updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto) {
+    if (actorId === userId && !dto.isActive) {
+      throw new BadRequestException('You cannot deactivate your own account');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      // Serialize status changes and recheck the actor while holding the locks.
+      const ids = [...new Set([actorId, userId])].sort();
+      for (const id of ids) {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${id} FOR UPDATE`;
+      }
+      const actor = await tx.user.findUnique({ where: { id: actorId } });
+      if (!actor?.isActive || actor.role !== 'ADMIN') throw new ForbiddenException();
+      const target = await tx.user.findUnique({ where: { id: userId } });
+      if (!target) throw new NotFoundException('User not found');
+
+      const changed = target.isActive !== dto.isActive;
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: {
+          isActive: dto.isActive,
+          ...(changed ? { authVersion: { increment: 1 } } : {}),
+        },
+        select: userProfileSelect,
+      });
+      if (changed || !dto.isActive) {
+        await tx.authToken.updateMany({
+          where: { userId, isRevoked: false },
+          data: { isRevoked: true },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'USER_STATUS_UPDATED',
+          metadata: {
+            targetUserId: userId,
+            previousIsActive: target.isActive,
+            isActive: dto.isActive,
+            reason: dto.reason,
+          },
+        },
+      });
+      return user;
+    });
   }
 }

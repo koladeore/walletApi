@@ -20,6 +20,7 @@ describe('User route access', () => {
     getAllUsers: jest.fn(),
     getWallet: jest.fn(),
     lookupRecipient: jest.fn(),
+    updateStatus: jest.fn(),
   };
   const token = (sub: string, role = 'USER') => jwt.sign({ sub, role });
 
@@ -47,6 +48,7 @@ describe('User route access', () => {
         ...profile,
         role: sub === 'admin' ? 'ADMIN' : 'USER',
         isActive: sub !== 'inactive',
+        authVersion: 0,
       }),
     );
     users.getProfile.mockResolvedValue(profile);
@@ -124,5 +126,44 @@ describe('User route access', () => {
       .auth(token('user'), { type: 'bearer' })
       .send({ email: profile.email })
       .expect(404);
+  });
+  it('blocks unauthenticated status changes', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/users/${id}/status`)
+      .send({ isActive: false, reason: 'Review' })
+      .expect(401);
+  });
+  it('blocks ordinary users from changing status', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/users/${id}/status`)
+      .auth(token('user', 'ADMIN'), { type: 'bearer' })
+      .send({ isActive: false, reason: 'Review' })
+      .expect(403);
+    expect(users.updateStatus).not.toHaveBeenCalled();
+  });
+  it('allows admin status changes and trims the reason', async () => {
+    users.updateStatus.mockResolvedValue({ ...profile, isActive: false });
+    await request(app.getHttpServer())
+      .patch(`/api/v1/users/${id}/status`)
+      .auth(token('admin'), { type: 'bearer' })
+      .send({ isActive: false, reason: ' Review ' })
+      .expect(200);
+    expect(users.updateStatus).toHaveBeenCalledWith(profile.id, id, {
+      isActive: false,
+      reason: 'Review',
+    });
+  });
+  it.each([
+    { isActive: 'false', reason: 'Review' },
+    { isActive: false, reason: '   ' },
+    { isActive: false },
+    { isActive: false, reason: 'Review', role: 'ADMIN' },
+  ])('rejects malformed status input %j', async (body) => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/users/${id}/status`)
+      .auth(token('admin'), { type: 'bearer' })
+      .send(body)
+      .expect(400);
+    expect(users.updateStatus).not.toHaveBeenCalled();
   });
 });
