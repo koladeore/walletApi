@@ -3,7 +3,9 @@ import {
   BadRequestException,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto';
@@ -16,12 +18,22 @@ export class WalletService {
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
     private readonly notificationService: NotificationService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
    * Simulate funding the wallet
    */
   async fundWallet(userId: string, amount: number, idempotencyKey: string) {
+    const environment = this.configService.get<string>('NODE_ENV');
+    const simulationEnabled = this.configService.get<string>('ENABLE_SIMULATED_FUNDING') === 'true';
+
+    // Fail closed, including when NODE_ENV is missing or unrecognized.
+    // Enforce this in the service so other callers cannot bypass the controller.
+    if (!simulationEnabled || (environment !== 'development' && environment !== 'test')) {
+      throw new ForbiddenException('Simulated wallet funding is disabled');
+    }
+
     try {
       return await this.prisma.$transaction(async (tx) => {
         // Find the user's wallet

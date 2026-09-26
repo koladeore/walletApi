@@ -50,6 +50,7 @@ services:
       target: production
     environment:
       NODE_ENV: production
+      ENABLE_SIMULATED_FUNDING: "false"
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-walletdb}?schema=public
       REDIS_HOST: redis

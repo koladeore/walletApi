@@ -13,6 +13,20 @@ import { BullModule } from '@nestjs/bullmq';
 import { EmailModule } from './email/email.module';
 import { NotificationModule } from './notification/notification.module';
 
+function prettyLogTarget(): string | undefined {
+  if (process.env.NODE_ENV === 'production') return undefined;
+
+  try {
+    return require.resolve('pino-pretty');
+  } catch {
+    // The slim Docker image omits devDependencies, even when run in development mode.
+    // Keep standard JSON logging available without the optional formatter.
+    return undefined;
+  }
+}
+
+const prettyTarget = prettyLogTarget();
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,15 +37,14 @@ import { NotificationModule } from './notification/notification.module';
         customProps: () => ({
           context: 'HTTP',
         }),
-        transport:
-          process.env.NODE_ENV !== 'production'
-            ? {
-                target: 'pino-pretty',
-                options: {
-                  singleLine: true,
-                },
-              }
-            : undefined,
+        transport: prettyTarget
+          ? {
+              target: prettyTarget,
+              options: {
+                singleLine: true,
+              },
+            }
+          : undefined,
       },
     }),
     PrismaModule,

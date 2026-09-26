@@ -28,13 +28,18 @@ export class WalletController {
 
   @Post('fund')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Simulate funding the wallet' })
+  @ApiOperation({
+    summary: 'Simulate funding the wallet (development/test only)',
+    description:
+      'Disabled by default. Requires explicit opt-in in a development or test environment.',
+  })
   @ApiHeader({
     name: 'x-idempotency-key',
     description: 'Unique key to prevent duplicate funding attempts',
     required: true,
   })
   @ApiResponse({ status: 200, description: 'Wallet funded successfully.' })
+  @ApiResponse({ status: 403, description: 'Simulated wallet funding is disabled.' })
   @ApiResponse({ status: 409, description: 'Conflict - Idempotency key already used.' })
   async fundWallet(
     @Req() req: AuthenticatedRequest,
