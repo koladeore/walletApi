@@ -164,6 +164,9 @@ export class WalletService {
         const freshReceiver = await tx.wallet.findUniqueOrThrow({
           where: { id: receiverWallet.id },
         });
+        if (freshSenderWallet.currency !== 'NGN' || freshReceiver.currency !== 'NGN') {
+          throw new BadRequestException('Both wallets must use NGN');
+        }
         if (freshReceiver.balanceMinor + amountMinor > MAX_MINOR)
           throw new BadRequestException('Recipient balance limit exceeded');
 
