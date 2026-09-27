@@ -143,4 +143,24 @@ describe('Account status enforcement', () => {
     await expect(auth.refreshTokens('valid-refresh-token')).rejects.toThrow(UnauthorizedException);
     expect(jwt.signAsync).not.toHaveBeenCalled();
   });
+  it.each(['USER', 'ADMIN'] as const)(
+    'returns the database role %s on login and refresh',
+    async (role) => {
+      users.findByEmail.mockResolvedValue({ ...user, role });
+      users.findById.mockResolvedValue({ ...user, role });
+      const login = await auth.login({ email: user.email, password: 'correct-password' });
+      const refresh = await auth.refreshTokens('valid-refresh-token');
+      for (const result of [login, refresh]) {
+        expect(result.user).toEqual({
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role,
+        });
+        expect(result.user).not.toHaveProperty('password');
+        expect(result.user).not.toHaveProperty('authVersion');
+      }
+    },
+  );
 });

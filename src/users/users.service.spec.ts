@@ -110,4 +110,21 @@ describe('UsersService registration', () => {
       select: { id: true, firstName: true, lastName: true },
     });
   });
+  it('selects the database role along with safe profile fields', async () => {
+    findUnique.mockResolvedValue({ ...profile, role: 'ADMIN' });
+    await expect(service.getProfile(profile.id)).resolves.toEqual({ ...profile, role: 'ADMIN' });
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: profile.id },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        role: true,
+      },
+    });
+  });
 });
