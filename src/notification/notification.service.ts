@@ -6,12 +6,13 @@ import { Queue } from 'bullmq';
 export class NotificationService {
   constructor(@InjectQueue('notification') private notificationQueue: Queue) {}
 
-  async notifyTransferReceived(userId: string, amount: number, senderEmail: string) {
+  async notifyTransferReceived(userId: string, amount: string, senderEmail: string) {
     await this.notificationQueue.add(
       'transfer-received',
       {
         userId,
         amount,
+        currency: 'NGN',
         senderEmail,
       },
       {

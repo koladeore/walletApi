@@ -10,6 +10,7 @@ import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { walletResponse } from '../common/money/money';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
 const userProfileSelect = {
@@ -59,9 +60,10 @@ export class UsersService {
   }
 
   async getWallet(userId: string) {
-    return this.prisma.wallet.findUnique({
+    const wallet = await this.prisma.wallet.findUnique({
       where: { userId },
     });
+    return wallet ? walletResponse(wallet) : null;
   }
 
   async lookupRecipient(email: string) {
@@ -98,8 +100,8 @@ export class UsersService {
       await tx.wallet.create({
         data: {
           userId: user.id,
-          currency: 'USD',
-          balance: 0,
+          currency: 'NGN',
+          balanceMinor: 0n,
         },
       });
 

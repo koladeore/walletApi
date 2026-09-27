@@ -45,8 +45,8 @@ model User {
 
 model Wallet {
   id                  String        @id @default(uuid())
-  balance             Decimal       @default(0.00) @db.Decimal(20, 2)
-  currency            String        @default("USD")
+  balanceMinor        BigInt        @default(0)
+  currency            String        @default("NGN")
   
   userId              String        @unique
   user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -62,7 +62,8 @@ model Wallet {
 
 model Transaction {
   id               String            @id @default(uuid())
-  amount           Decimal           @db.Decimal(20, 2)
+  amountMinor      BigInt
+  currency         String
   type             TransactionType
   status           TransactionStatus @default(PENDING)
   referenceId      String            @unique // Crucial for idempotency

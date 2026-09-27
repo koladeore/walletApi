@@ -23,12 +23,13 @@ export class EmailService {
     );
   }
 
-  async sendTransferReceipt(email: string, amount: number, receiverEmail: string) {
+  async sendTransferReceipt(email: string, amount: string, receiverEmail: string) {
     await this.emailQueue.add(
       'transfer-receipt',
       {
         email,
         amount,
+        currency: 'NGN',
         receiverEmail,
       },
       {
@@ -41,12 +42,13 @@ export class EmailService {
     );
   }
 
-  async sendTransferReceivedEmail(email: string, amount: number, senderEmail: string) {
+  async sendTransferReceivedEmail(email: string, amount: string, senderEmail: string) {
     await this.emailQueue.add(
       'transfer-incoming',
       {
         email,
         amount,
+        currency: 'NGN',
         senderEmail,
       },
       {

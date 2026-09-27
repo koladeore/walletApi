@@ -45,7 +45,7 @@ describe('WalletService simulated funding', () => {
       settings.NODE_ENV = env;
       settings.ENABLE_SIMULATED_FUNDING = flag;
 
-      await expect(service.fundWallet('user-id', 100, 'request-id')).rejects.toThrow(
+      await expect(service.fundWallet('user-id', '100.00', 'request-id')).rejects.toThrow(
         ForbiddenException,
       );
       expect(transaction).not.toHaveBeenCalled();
@@ -58,22 +58,27 @@ describe('WalletService simulated funding', () => {
     const tx = {
       wallet: {
         findUnique: jest.fn().mockResolvedValue({ id: 'wallet-id' }),
-        update: jest.fn().mockResolvedValue({ id: 'wallet-id', balance: 100 }),
+        findUniqueOrThrow: jest
+          .fn()
+          .mockResolvedValue({ id: 'wallet-id', currency: 'NGN', balanceMinor: 0n }),
+        update: jest.fn().mockResolvedValue({ id: 'wallet-id', balanceMinor: 10000n }),
       },
       $queryRaw: jest.fn().mockResolvedValue([]),
-      transaction: { create: jest.fn().mockResolvedValue({ id: 'transaction-id' }) },
+      transaction: {
+        create: jest.fn().mockResolvedValue({ id: 'transaction-id', amountMinor: 10000n }),
+      },
     };
     transaction.mockImplementation((callback: (client: typeof tx) => Promise<unknown>) =>
       callback(tx),
     );
 
-    await expect(service.fundWallet('user-id', 100, 'request-id')).resolves.toEqual({
-      wallet: { id: 'wallet-id', balance: 100 },
-      transaction: { id: 'transaction-id' },
+    await expect(service.fundWallet('user-id', '100.00', 'request-id')).resolves.toEqual({
+      wallet: { id: 'wallet-id', balanceMinor: '10000', balance: '100.00' },
+      transaction: { id: 'transaction-id', amountMinor: '10000', amount: '100.00' },
     });
     expect(tx.wallet.update).toHaveBeenCalledWith({
       where: { id: 'wallet-id' },
-      data: { balance: { increment: 100 } },
+      data: { balanceMinor: { increment: 10000n } },
     });
   });
 });

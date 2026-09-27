@@ -11,13 +11,15 @@ interface WelcomeEmailData {
 
 interface TransferReceiptData {
   email: string;
-  amount: number;
+  amount: string;
+  currency: 'NGN';
   receiverEmail: string;
 }
 
 interface TransferIncomingData {
   email: string;
-  amount: number;
+  amount: string;
+  currency: 'NGN';
   senderEmail: string;
 }
 
@@ -39,6 +41,12 @@ export class EmailProcessor extends WorkerHost {
     this.logger.log(`Processing email job: ${job.name} (ID: ${job.id})`);
 
     try {
+      if (
+        job.name.startsWith('transfer-') &&
+        (!('currency' in job.data) || job.data.currency !== 'NGN')
+      ) {
+        throw new Error('Legacy transfer email requires currency review before replay');
+      }
       switch (job.name) {
         case 'welcome-email':
           await this.handleWelcomeEmail(job.data as WelcomeEmailData);
@@ -185,7 +193,8 @@ export class EmailProcessor extends WorkerHost {
 
   private async handleTransferReceipt(data: {
     email: string;
-    amount: number;
+    amount: string;
+    currency: 'NGN';
     receiverEmail: string;
   }) {
     if (!this.configService.get('RESEND_API_KEY')) {
@@ -204,7 +213,7 @@ export class EmailProcessor extends WorkerHost {
         </div>
         <div class="detail-row">
           <span class="detail-label">Amount</span>
-          <span class="detail-value">$${data.amount.toFixed(2)}</span>
+          <span class="detail-value">NGN ${data.amount}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Time</span>
@@ -227,7 +236,8 @@ export class EmailProcessor extends WorkerHost {
 
   private async handleTransferIncoming(data: {
     email: string;
-    amount: number;
+    amount: string;
+    currency: 'NGN';
     senderEmail: string;
   }) {
     if (!this.configService.get('RESEND_API_KEY')) {
@@ -246,7 +256,7 @@ export class EmailProcessor extends WorkerHost {
         </div>
         <div class="detail-row">
           <span class="detail-label">Amount</span>
-          <span class="detail-value">$${data.amount.toFixed(2)}</span>
+          <span class="detail-value">NGN ${data.amount}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Time</span>

@@ -1,4 +1,11 @@
 import {
+  MAX_MINOR,
+  parseNaira,
+  formatMinor,
+  walletResponse,
+  transactionResponse,
+} from '../common/money/money';
+import {
   Injectable,
   BadRequestException,
   ConflictException,
@@ -24,7 +31,7 @@ export class WalletService {
   /**
    * Simulate funding the wallet
    */
-  async fundWallet(userId: string, amount: number, idempotencyKey: string) {
+  async fundWallet(userId: string, amount: string, idempotencyKey: string) {
     const environment = this.configService.get<string>('NODE_ENV');
     const simulationEnabled = this.configService.get<string>('ENABLE_SIMULATED_FUNDING') === 'true';
 
@@ -34,6 +41,7 @@ export class WalletService {
       throw new ForbiddenException('Simulated wallet funding is disabled');
     }
 
+    const amountMinor = parseNaira(amount);
     try {
       return await this.prisma.$transaction(async (tx) => {
         // Find the user's wallet
@@ -48,10 +56,17 @@ export class WalletService {
         // Lock the wallet row for update
         await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
 
+        const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+        if (current.currency !== 'NGN')
+          throw new BadRequestException('Only NGN wallets are supported');
+        if (current.balanceMinor + amountMinor > MAX_MINOR)
+          throw new BadRequestException('Wallet balance limit exceeded');
+
         // Create transaction record FIRST to utilize the DB unique constraint on idempotencyKey
         const transaction = await tx.transaction.create({
           data: {
-            amount,
+            amountMinor,
+            currency: 'NGN',
             type: 'CREDIT',
             status: 'SUCCESS',
             referenceId: idempotencyKey, // Idempotency
@@ -64,13 +79,16 @@ export class WalletService {
         const updatedWallet = await tx.wallet.update({
           where: { id: wallet.id },
           data: {
-            balance: {
-              increment: amount,
+            balanceMinor: {
+              increment: amountMinor,
             },
           },
         });
 
-        return { wallet: updatedWallet, transaction };
+        return {
+          wallet: walletResponse(updatedWallet),
+          transaction: transactionResponse(transaction),
+        };
       });
     } catch (error: unknown) {
       // Prisma unique constraint error code (P2002) for duplicate referenceId (idempotency key)
@@ -89,12 +107,10 @@ export class WalletService {
   async transferFunds(
     senderId: string,
     receiverEmail: string,
-    amount: number,
+    amount: string,
     idempotencyKey: string,
   ) {
-    if (amount <= 0) {
-      throw new BadRequestException('Transfer amount must be greater than zero');
-    }
+    const amountMinor = parseNaira(amount);
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
@@ -125,6 +141,10 @@ export class WalletService {
         const senderWallet = sender.wallet;
         const receiverWallet = receiver.wallet;
 
+        if (senderWallet.currency !== 'NGN' || receiverWallet.currency !== 'NGN') {
+          throw new BadRequestException('Both wallets must use NGN');
+        }
+
         // Ensure predictable locking order to avoid deadlocks (lock smaller ID first)
         const firstLockId =
           senderWallet.id < receiverWallet.id ? senderWallet.id : receiverWallet.id;
@@ -137,14 +157,21 @@ export class WalletService {
 
         // Check sufficient balance
         const freshSenderWallet = await tx.wallet.findUnique({ where: { id: senderWallet.id } });
-        if (!freshSenderWallet || Number(freshSenderWallet.balance) < amount) {
+        if (!freshSenderWallet || freshSenderWallet.balanceMinor < amountMinor) {
           throw new BadRequestException('Insufficient balance');
         }
+
+        const freshReceiver = await tx.wallet.findUniqueOrThrow({
+          where: { id: receiverWallet.id },
+        });
+        if (freshReceiver.balanceMinor + amountMinor > MAX_MINOR)
+          throw new BadRequestException('Recipient balance limit exceeded');
 
         // Create transaction history with Idempotency constraint on referenceId
         const transactionRecord = await tx.transaction.create({
           data: {
-            amount,
+            amountMinor,
+            currency: 'NGN',
             type: 'TRANSFER',
             status: 'SUCCESS',
             referenceId: idempotencyKey, // Handles Idempotency
@@ -158,8 +185,8 @@ export class WalletService {
         await tx.wallet.update({
           where: { id: senderWallet.id },
           data: {
-            balance: {
-              decrement: amount,
+            balanceMinor: {
+              decrement: amountMinor,
             },
           },
         });
@@ -168,8 +195,8 @@ export class WalletService {
         await tx.wallet.update({
           where: { id: receiverWallet.id },
           data: {
-            balance: {
-              increment: amount,
+            balanceMinor: {
+              increment: amountMinor,
             },
           },
         });
@@ -184,16 +211,20 @@ export class WalletService {
 
       // Fire off background jobs
       this.emailService
-        .sendTransferReceipt(result.senderEmail, amount, result.receiverEmail)
+        .sendTransferReceipt(result.senderEmail, formatMinor(amountMinor), result.receiverEmail)
         .catch(console.error);
       this.emailService
-        .sendTransferReceivedEmail(result.receiverEmail, amount, result.senderEmail)
+        .sendTransferReceivedEmail(
+          result.receiverEmail,
+          formatMinor(amountMinor),
+          result.senderEmail,
+        )
         .catch(console.error);
       this.notificationService
-        .notifyTransferReceived(result.receiverId, amount, result.senderEmail)
+        .notifyTransferReceived(result.receiverId, formatMinor(amountMinor), result.senderEmail)
         .catch(console.error);
 
-      return result.transactionRecord;
+      return transactionResponse(result.transactionRecord);
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(
@@ -251,7 +282,7 @@ export class WalletService {
     ]);
 
     return {
-      data: transactions,
+      data: transactions.map(transactionResponse),
       meta: {
         totalItems,
         itemCount: transactions.length,

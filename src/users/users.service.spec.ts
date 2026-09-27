@@ -84,7 +84,7 @@ describe('UsersService registration', () => {
     expect(args.data.password).not.toBe(input.password);
     expect(await bcrypt.compare(input.password, args.data.password)).toBe(true);
     expect(createWallet).toHaveBeenCalledWith({
-      data: { userId: profile.id, currency: 'USD', balance: 0 },
+      data: { userId: profile.id, currency: 'NGN', balanceMinor: 0n },
     });
     expect(sendWelcomeEmail).toHaveBeenCalledWith(profile.email, profile.firstName);
   });
