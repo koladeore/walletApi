@@ -52,7 +52,7 @@ export class AuthService {
       this.jwtService.signAsync(payload),
       this.jwtService.signAsync(payload, {
         secret: this.configService.get('REFRESH_SECRET'),
-        expiresIn: this.configService.get('REFRESH_EXPIRES_IN'),
+        expiresIn: this.configService.getOrThrow<number>('REFRESH_EXPIRES_IN'),
       }),
     ]);
 
@@ -64,7 +64,9 @@ export class AuthService {
       data: {
         token: hashedRefreshToken,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days matching env
+        expiresAt: new Date(
+          Date.now() + this.configService.getOrThrow<number>('REFRESH_EXPIRES_IN') * 1000,
+        ),
       },
     });
 

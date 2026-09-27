@@ -52,7 +52,10 @@ describe('Account status enforcement', () => {
         { provide: PrismaService, useValue: { authToken: tokens } },
         {
           provide: ConfigService,
-          useValue: { get: () => 'test-value', getOrThrow: () => 'test-secret' },
+          useValue: {
+            get: () => 'test-value',
+            getOrThrow: (key: string) => (key === 'REFRESH_EXPIRES_IN' ? 604800 : 'test-secret'),
+          },
         },
       ],
     }).compile();

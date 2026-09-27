@@ -55,9 +55,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-walletdb}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET:-local_access_secret_change_me}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
-      REFRESH_SECRET: ${REFRESH_SECRET:-local_refresh_secret_change_me}
+      REFRESH_SECRET: ${REFRESH_SECRET:?Set REFRESH_SECRET in .env}
       REFRESH_EXPIRES_IN: ${REFRESH_EXPIRES_IN:-7d}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
     ports:
