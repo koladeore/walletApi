@@ -71,7 +71,7 @@ export class WalletService {
             status: 'SUCCESS',
             referenceId: idempotencyKey, // Idempotency
             receiverWalletId: wallet.id,
-            metadata: { description: 'Wallet Funding' },
+            metadata: { description: 'Wallet Funding', fundingSource: 'SIMULATION' },
           },
         });
 

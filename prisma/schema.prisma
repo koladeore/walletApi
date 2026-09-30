@@ -44,6 +44,7 @@ model User {
 }
 
 model Wallet {
+  ledgerAccount LedgerAccount?
   id                  String        @id @default(uuid())
   balanceMinor        BigInt        @default(0)
   currency            String        @default("NGN")
@@ -61,6 +62,7 @@ model Wallet {
 }
 
 model Transaction {
+  ledgerJournal LedgerJournal?
   id               String            @id @default(uuid())
   amountMinor      BigInt
   currency         String
@@ -107,4 +109,61 @@ model AuditLog {
   timestamp DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+// Customer balances are liabilities (credits increase the customer's balance).
+enum LedgerAccountKind {
+  CUSTOMER
+  CLEARING
+  SIMULATION_CLEARING
+  FEES
+  ADJUSTMENTS
+}
+
+enum LedgerSide {
+  DEBIT
+  CREDIT
+}
+
+model LedgerAccount {
+  id        String            @id @default(uuid())
+  code      String            @unique
+  currency  String
+  kind      LedgerAccountKind
+  walletId  String?           @unique
+  wallet    Wallet?           @relation(fields: [walletId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdAt DateTime          @default(now())
+  entries   LedgerEntry[]
+
+  @@map("ledger_accounts")
+}
+
+model LedgerJournal {
+  id            String        @id @default(uuid())
+  reference     String        @unique
+  currency      String
+  description   String
+  transactionId String?       @unique
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  createdAt     DateTime      @default(now())
+  // Database write boundary: entries can only be appended in the creating transaction.
+  createdXid    BigInt        @default(dbgenerated("txid_current()"))
+  entries       LedgerEntry[]
+
+  @@map("ledger_journals")
+}
+
+model LedgerEntry {
+  id          String        @id @default(uuid())
+  journalId   String
+  journal     LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  accountId   String
+  account     LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  side        LedgerSide
+  amountMinor BigInt
+  createdAt   DateTime      @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([journalId])
+  @@map("ledger_entries")
 }

@@ -1,0 +1,111 @@
+// Run only against a new, disposable database named wallet_ledger_test*.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client } = require('pg');
+const { ConfigService } = require('@nestjs/config');
+const { PrismaService } = require('../../src/prisma/prisma.service');
+const { WalletService } = require('../../src/wallet/wallet.service');
+
+async function main() {
+  const url = process.env.LEDGER_TEST_DATABASE_URL;
+  if (!url || !new URL(url).pathname.startsWith('/wallet_ledger_test')) {
+    throw new Error('Provide a disposable LEDGER_TEST_DATABASE_URL named wallet_ledger_test*');
+  }
+  const client = new Client({ connectionString: url });
+  await client.connect();
+  let prisma;
+  let checks = 0;
+  const reject = async (sql, code = '23514') => {
+    await client.query('BEGIN');
+    try {
+      await client.query(sql);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      assert.equal(error.code, code);
+      checks++;
+      return;
+    }
+    throw new Error('Expected database rejection: ' + sql.slice(0, 60));
+  };
+  try {
+    const tables = await client.query("SELECT count(*)::int AS n FROM pg_tables WHERE schemaname='public'");
+    assert.equal(tables.rows[0].n, 0, 'Test database must be empty');
+    const root = path.join(__dirname, '../../prisma/migrations');
+    for (const name of fs.readdirSync(root).sort()) {
+      const file = path.join(root, name, 'migration.sql');
+      if (!fs.existsSync(file)) continue;
+      if (name.endsWith('double_entry_ledger')) {
+        await client.query(`
+          INSERT INTO users(id,email,password,"updatedAt") VALUES
+          ('alice','alice@example.com','test',now()), ('bob','bob@example.com','test',now()), ('legacy','legacy@example.com','test',now());
+          INSERT INTO wallets(id,"userId",currency,"balanceMinor","updatedAt") VALUES
+          ('alice-wallet','alice','NGN',10000,now()), ('bob-wallet','bob','NGN',0,now()), ('legacy-wallet','legacy','USD',2500,now());
+        `);
+      }
+      await client.query(fs.readFileSync(file, 'utf8'));
+    }
+    const counts = await client.query('SELECT (SELECT count(*) FROM ledger_accounts)::int AS accounts, (SELECT count(*) FROM ledger_journals)::int AS journals');
+    assert.deepEqual(counts.rows[0], { accounts: 11, journals: 2 }); checks++;
+    assert.equal((await client.query("SELECT currency FROM ledger_journals WHERE id='opening:legacy-wallet'")).rows[0].currency, 'USD'); checks++;
+
+    prisma = new PrismaService(new ConfigService({ DATABASE_URL: url }));
+    await prisma.$connect();
+    const noop = async () => {};
+    const service = new WalletService(prisma,
+      { sendTransferReceipt: noop, sendTransferReceivedEmail: noop },
+      { notifyTransferReceived: noop },
+      new ConfigService({ NODE_ENV: 'test', ENABLE_SIMULATED_FUNDING: 'true' }));
+    await service.fundWallet('bob', '10.50', 'fund-1');
+    await service.transferFunds('alice', 'bob@example.com', '1.25', 'transfer-1');
+    const balances = (await client.query("SELECT id, \"balanceMinor\" FROM wallets WHERE currency='NGN' ORDER BY id")).rows;
+    assert.deepEqual(balances, [{ id: 'alice-wallet', balanceMinor: '9875' }, { id: 'bob-wallet', balanceMinor: '1175' }]); checks++;
+    const unbalanced = await client.query(`SELECT "journalId" FROM ledger_entries GROUP BY "journalId" HAVING sum(CASE WHEN side='DEBIT' THEN "amountMinor"::numeric ELSE -"amountMinor"::numeric END) <> 0`);
+    assert.equal(unbalanced.rowCount, 0); checks++;
+    await assert.rejects(() => service.fundWallet('bob', '10.50', 'fund-1')); checks++;
+    assert.equal((await client.query("SELECT count(*)::int AS n FROM ledger_journals WHERE reference='transaction:fund-1'")).rows[0].n, 1); checks++;
+
+    // Two competing debits: exactly one can spend the available funds.
+    const attempts = await Promise.allSettled([
+      service.transferFunds('alice', 'bob@example.com', '70.00', 'race-1'),
+      service.transferFunds('alice', 'bob@example.com', '70.00', 'race-2'),
+    ]);
+    assert.equal(attempts.filter(x => x.status === 'fulfilled').length, 1); checks++;
+    await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
+
+    await reject("UPDATE wallets SET \"balanceMinor\"=999 WHERE id='alice-wallet'");
+    await reject("UPDATE wallets SET currency='USD' WHERE id='alice-wallet'");
+    await reject("UPDATE ledger_entries SET \"amountMinor\"=1 WHERE id='opening:credit:alice-wallet'");
+    await reject("DELETE FROM ledger_journals WHERE id='opening:alice-wallet'");
+    await reject('TRUNCATE ledger_entries');
+    await reject("UPDATE ledger_accounts SET currency='USD' WHERE id='wallet:alice-wallet'");
+    await reject("INSERT INTO ledger_entries(id,\"journalId\",\"accountId\",side,\"amountMinor\") VALUES ('late','opening:alice-wallet','system:NGN:FEES','CREDIT',1)");
+    await reject("INSERT INTO ledger_journals(id,reference,currency,description) VALUES ('empty','empty','NGN','Invalid empty journal')");
+    await reject(`INSERT INTO ledger_journals(id,reference,currency,description) VALUES ('bad','bad','NGN','Unbalanced');
+      INSERT INTO ledger_entries(id,"journalId","accountId",side,"amountMinor") VALUES ('bad1','bad','system:NGN:CLEARING','DEBIT',2),('bad2','bad','system:NGN:FEES','CREDIT',1)`);
+    await reject(`INSERT INTO ledger_journals(id,reference,currency,description) VALUES ('fx','fx','NGN','Currency mismatch');
+      INSERT INTO ledger_entries(id,"journalId","accountId",side,"amountMinor") VALUES ('fx1','fx','system:USD:CLEARING','DEBIT',1)`);
+    await reject("UPDATE transactions SET \"amountMinor\"=1 WHERE \"referenceId\"='fund-1'");
+    // Ledger posting exists, but wallet update is missing: the entire transaction rolls back.
+    await reject(`INSERT INTO transactions(id,"amountMinor",currency,type,status,"referenceId","receiverWalletId",metadata,"updatedAt")
+      VALUES ('orphan',100,'NGN','CREDIT','SUCCESS','orphan','bob-wallet','{"fundingSource":"SIMULATION"}',now())`);
+    assert.equal((await client.query("SELECT count(*)::int AS n FROM ledger_journals WHERE reference='transaction:orphan'")).rows[0].n, 0); checks++;
+    await reject("DELETE FROM wallets WHERE id='bob-wallet'");
+    await reject(`INSERT INTO ledger_journals(id,reference,currency,description) VALUES ('latebad','latebad','NGN','Late imbalance');
+      INSERT INTO ledger_entries(id,"journalId","accountId",side,"amountMinor") VALUES ('lb1','latebad','system:NGN:CLEARING','DEBIT',1),('lb2','latebad','system:NGN:FEES','CREDIT',1);
+      SET CONSTRAINTS ALL IMMEDIATE; SET CONSTRAINTS ALL DEFERRED;
+      INSERT INTO ledger_entries(id,"journalId","accountId",side,"amountMinor") VALUES ('lb3','latebad','system:NGN:FEES','CREDIT',1)`);
+    await reject(`INSERT INTO ledger_journals(id,reference,currency,description) VALUES ('zero','zero','NGN','Zero amount');
+      INSERT INTO ledger_entries(id,"journalId","accountId",side,"amountMinor") VALUES ('z1','zero','system:NGN:CLEARING','DEBIT',0)`);
+    // New zero-balance wallets get their customer account automatically.
+    await client.query(`BEGIN; INSERT INTO users(id,email,password,"updatedAt") VALUES ('new','new@example.com','test',now());
+      INSERT INTO wallets(id,"userId","updatedAt") VALUES ('new-wallet','new',now()); COMMIT;`);
+    assert.equal((await client.query("SELECT count(*)::int AS n FROM ledger_accounts WHERE \"walletId\"='new-wallet'")).rows[0].n, 1); checks++;
+    console.log(`Ledger database integration: ${checks} checks passed (migration, posting, retries, concurrency, immutability, rollback).`);
+  } finally {
+    if (prisma) await prisma.$disconnect();
+    await client.end();
+  }
+}
+main().catch(error => { console.error(error.message); process.exitCode = 1; });
