@@ -28,8 +28,16 @@ describe('Integer wallet transfers', () => {
         email: 'r@example.com',
         wallet: { id: 'b', currency: 'NGN' },
       });
-    tx.wallet.findUnique.mockResolvedValue({ balanceMinor: 9007199254740993n, currency: 'NGN' });
-    tx.wallet.findUniqueOrThrow.mockResolvedValue({ balanceMinor: 0n, currency: 'NGN' });
+    tx.wallet.findUnique.mockResolvedValue({
+      reservedMinor: 0n,
+      balanceMinor: 9007199254740993n,
+      currency: 'NGN',
+    });
+    tx.wallet.findUniqueOrThrow.mockResolvedValue({
+      reservedMinor: 0n,
+      balanceMinor: 0n,
+      currency: 'NGN',
+    });
     tx.transaction.create.mockResolvedValue({
       id: 'tx',
       amountMinor: 9007199254740993n,
@@ -73,14 +81,33 @@ describe('Integer wallet transfers', () => {
     expect(send).toHaveBeenCalledWith('s@example.com', '90071992547409.93', 'r@example.com');
   });
   it('rejects a one-kobo shortfall at a large balance', async () => {
-    tx.wallet.findUnique.mockResolvedValue({ balanceMinor: 9007199254740992n, currency: 'NGN' });
+    tx.wallet.findUnique.mockResolvedValue({
+      reservedMinor: 0n,
+      balanceMinor: 9007199254740992n,
+      currency: 'NGN',
+    });
     await expect(
       service.transferFunds('sender', 'r@example.com', '90071992547409.93', 'key'),
     ).rejects.toThrow('Insufficient balance');
     expect(tx.wallet.update).not.toHaveBeenCalled();
   });
+  it('does not spend money reserved for a withdrawal', async () => {
+    tx.wallet.findUnique.mockResolvedValue({
+      balanceMinor: 10000n,
+      reservedMinor: 7000n,
+      currency: 'NGN',
+    });
+    await expect(service.transferFunds('sender', 'r@example.com', '30.01', 'key')).rejects.toThrow(
+      'Insufficient balance',
+    );
+    expect(tx.transaction.create).not.toHaveBeenCalled();
+  });
   it('rejects recipient balance overflow before writes', async () => {
-    tx.wallet.findUniqueOrThrow.mockResolvedValue({ balanceMinor: MAX_MINOR, currency: 'NGN' });
+    tx.wallet.findUniqueOrThrow.mockResolvedValue({
+      reservedMinor: 0n,
+      balanceMinor: MAX_MINOR,
+      currency: 'NGN',
+    });
     await expect(service.transferFunds('sender', 'r@example.com', '0.01', 'key')).rejects.toThrow(
       'Recipient balance limit exceeded',
     );
@@ -98,9 +125,17 @@ describe('Integer wallet transfers', () => {
   });
   it.each(['sender', 'receiver'])('rechecks %s currency after obtaining locks', async (side) => {
     if (side === 'sender') {
-      tx.wallet.findUnique.mockResolvedValue({ balanceMinor: 100n, currency: 'USD' });
+      tx.wallet.findUnique.mockResolvedValue({
+        reservedMinor: 0n,
+        balanceMinor: 100n,
+        currency: 'USD',
+      });
     } else {
-      tx.wallet.findUniqueOrThrow.mockResolvedValue({ balanceMinor: 0n, currency: 'USD' });
+      tx.wallet.findUniqueOrThrow.mockResolvedValue({
+        reservedMinor: 0n,
+        balanceMinor: 0n,
+        currency: 'USD',
+      });
     }
     await expect(service.transferFunds('sender', 'r@example.com', '0.01', 'key')).rejects.toThrow(
       'Both wallets must use NGN',

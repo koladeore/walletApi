@@ -38,6 +38,10 @@ describe('Exact NGN money', () => {
     expect(JSON.parse(JSON.stringify(walletResponse({ balanceMinor: value })))).toEqual({
       balanceMinor: '9007199254740993',
       balance: '90071992547409.93',
+      reservedMinor: '0',
+      reservedBalance: '0.00',
+      availableMinor: '9007199254740993',
+      availableBalance: '90071992547409.93',
     });
     expect(transactionResponse({ amountMinor: value }).amount).toBe('90071992547409.93');
   });

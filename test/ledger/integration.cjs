@@ -102,6 +102,41 @@ async function main() {
     await client.query(`BEGIN; INSERT INTO users(id,email,password,"updatedAt") VALUES ('new','new@example.com','test',now());
       INSERT INTO wallets(id,"userId","updatedAt") VALUES ('new-wallet','new',now()); COMMIT;`);
     assert.equal((await client.query("SELECT count(*)::int AS n FROM ledger_accounts WHERE \"walletId\"='new-wallet'")).rows[0].n, 1); checks++;
+
+    // Reservations must preserve the total ledger balance until confirmed payout.
+    const held = await service.reserveWithdrawal('bob', '30.00', 'payout-1');
+    assert.equal(held.status, 'PENDING'); checks++;
+    assert.equal((await prisma.wallet.findUniqueOrThrow({where:{id:'bob-wallet'}})).reservedMinor, 3000n); checks++;
+    assert.deepEqual(await service.reserveWithdrawal('bob', '30.00', 'payout-1'), held); checks++;
+    await assert.rejects(() => service.reserveWithdrawal('bob', '30.01', 'payout-1')); checks++;
+    await assert.rejects(() => service.reserveWithdrawal('alice', '30.00', 'payout-1')); checks++;
+    await assert.rejects(() => service.transferFunds('bob','alice@example.com','51.76','held-spend')); checks++;
+    const captured = await service.resolveWithdrawal('payout-1', 'CAPTURED');
+    assert.deepEqual(await service.resolveWithdrawal('payout-1','CAPTURED'), captured); checks++;
+    await assert.rejects(() => service.resolveWithdrawal('payout-1','RELEASED')); checks++;
+    const bob = await prisma.wallet.findUniqueOrThrow({where:{id:'bob-wallet'}});
+    assert.equal(bob.balanceMinor, 5175n); assert.equal(bob.reservedMinor, 0n); checks++;
+    assert.equal((await client.query(`SELECT count(*)::int n FROM transactions WHERE type='DEBIT'`)).rows[0].n,1); checks++;
+    await service.reserveWithdrawal('alice','20.00','release-1');
+    const released = await service.resolveWithdrawal('release-1','RELEASED');
+    assert.deepEqual(await service.resolveWithdrawal('release-1','RELEASED'),released); checks++;
+    await assert.rejects(() => service.resolveWithdrawal('release-1','CAPTURED')); checks++;
+    const alice = await prisma.wallet.findUniqueOrThrow({where:{id:'alice-wallet'}});
+    assert.equal(alice.balanceMinor,2875n); assert.equal(alice.reservedMinor,0n); checks++;
+    const race = await Promise.allSettled([
+      service.reserveWithdrawal('alice','20.00','reserve-race'),
+      service.transferFunds('alice','bob@example.com','20.00','transfer-reserve-race'),
+    ]);
+    assert.equal(race.filter(x=>x.status==='fulfilled').length,1); checks++;
+    await reject(`UPDATE wallets SET "reservedMinor"=1 WHERE id='bob-wallet'`);
+    await reject(`UPDATE wallets SET "reservedMinor"=-1 WHERE id='bob-wallet'`);
+    await reject(`UPDATE wallets SET "reservedMinor"="balanceMinor"+1 WHERE id='bob-wallet'`);
+    await reject(`UPDATE withdrawal_reservations SET status='PENDING' WHERE reference='payout-1'`);
+    await reject(`DELETE FROM withdrawal_reservations WHERE reference='payout-1'`);
+    await reject('TRUNCATE withdrawal_reservations');
+    await reject(`INSERT INTO withdrawal_reservations(id,reference,"walletId",currency,"amountMinor","updatedAt") VALUES ('usd','usd','legacy-wallet','NGN',1,now())`);
+    await reject(`INSERT INTO withdrawal_reservations(id,reference,"walletId",currency,"amountMinor","updatedAt") VALUES ('large','large','bob-wallet','NGN',99999999,now())`);
+    await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
     console.log(`Ledger database integration: ${checks} checks passed (migration, posting, retries, concurrency, immutability, rollback).`);
   } finally {
     if (prisma) await prisma.$disconnect();

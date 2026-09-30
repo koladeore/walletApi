@@ -73,7 +73,15 @@ describe('WalletService simulated funding', () => {
     );
 
     await expect(service.fundWallet('user-id', '100.00', 'request-id')).resolves.toEqual({
-      wallet: { id: 'wallet-id', balanceMinor: '10000', balance: '100.00' },
+      wallet: {
+        id: 'wallet-id',
+        balanceMinor: '10000',
+        balance: '100.00',
+        reservedMinor: '0',
+        reservedBalance: '0.00',
+        availableMinor: '10000',
+        availableBalance: '100.00',
+      },
       transaction: { id: 'transaction-id', amountMinor: '10000', amount: '100.00' },
     });
     expect(tx.wallet.update).toHaveBeenCalledWith({

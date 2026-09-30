@@ -19,11 +19,17 @@ export function formatMinor(value: bigint): string {
   return `${sign}${absolute / 100n}.${(absolute % 100n).toString().padStart(2, '0')}`;
 }
 
-export function walletResponse<T extends { balanceMinor: bigint }>(wallet: T) {
+export function walletResponse<T extends { balanceMinor: bigint; reservedMinor?: bigint }>(
+  wallet: T,
+) {
   return {
     ...wallet,
     balanceMinor: wallet.balanceMinor.toString(),
     balance: formatMinor(wallet.balanceMinor),
+    reservedMinor: (wallet.reservedMinor ?? 0n).toString(),
+    reservedBalance: formatMinor(wallet.reservedMinor ?? 0n),
+    availableMinor: (wallet.balanceMinor - (wallet.reservedMinor ?? 0n)).toString(),
+    availableBalance: formatMinor(wallet.balanceMinor - (wallet.reservedMinor ?? 0n)),
   };
 }
 

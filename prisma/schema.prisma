@@ -47,6 +47,8 @@ model Wallet {
   ledgerAccount LedgerAccount?
   id                  String        @id @default(uuid())
   balanceMinor        BigInt        @default(0)
+  reservedMinor       BigInt        @default(0)
+  reservations        WithdrawalReservation[]
   currency            String        @default("NGN")
   
   userId              String        @unique
@@ -166,4 +168,26 @@ model LedgerEntry {
   @@index([accountId, createdAt])
   @@index([journalId])
   @@map("ledger_entries")
+}
+
+
+enum ReservationStatus {
+  PENDING
+  RELEASED
+  CAPTURED
+}
+
+model WithdrawalReservation {
+  id          String @id @default(uuid())
+  reference   String @unique
+  walletId    String
+  wallet      Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  currency    String
+  amountMinor BigInt
+  status      ReservationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([walletId, status])
+  @@map("withdrawal_reservations")
 }

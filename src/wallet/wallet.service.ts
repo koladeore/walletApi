@@ -157,7 +157,10 @@ export class WalletService {
 
         // Check sufficient balance
         const freshSenderWallet = await tx.wallet.findUnique({ where: { id: senderWallet.id } });
-        if (!freshSenderWallet || freshSenderWallet.balanceMinor < amountMinor) {
+        if (
+          !freshSenderWallet ||
+          freshSenderWallet.balanceMinor - freshSenderWallet.reservedMinor < amountMinor
+        ) {
           throw new BadRequestException('Insufficient balance');
         }
 
@@ -236,6 +239,53 @@ export class WalletService {
       }
       throw error;
     }
+  }
+
+  // Internal payout orchestration only. Never expose capture/release to customers:
+  // release requires a definitive payout failure; capture requires verified success.
+  async reserveWithdrawal(userId: string, amount: string, reference: string) {
+    const amountMinor = parseNaira(amount);
+    if (!reference || reference.length > 200)
+      throw new BadRequestException('Invalid withdrawal reference');
+    return this.prisma.$transaction(async (tx) => {
+      const wallet = await tx.wallet.findUniqueOrThrow({ where: { userId } });
+      await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
+      const existing = await tx.withdrawalReservation.findUnique({ where: { reference } });
+      if (existing) {
+        if (existing.walletId !== wallet.id || existing.amountMinor !== amountMinor)
+          throw new ConflictException('Withdrawal reference already used');
+        return transactionResponse(existing);
+      }
+      const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+      if (current.currency !== 'NGN')
+        throw new BadRequestException('Only NGN wallets are supported');
+      if (current.balanceMinor - current.reservedMinor < amountMinor)
+        throw new BadRequestException('Insufficient available balance');
+      const reservation = await tx.withdrawalReservation.create({
+        data: { walletId: wallet.id, currency: current.currency, amountMinor, reference },
+      });
+      return transactionResponse(reservation);
+    });
+  }
+
+  async resolveWithdrawal(reference: string, outcome: 'CAPTURED' | 'RELEASED') {
+    if (outcome !== 'CAPTURED' && outcome !== 'RELEASED')
+      throw new BadRequestException('Invalid withdrawal outcome');
+    return this.prisma.$transaction(async (tx) => {
+      const reservation = await tx.withdrawalReservation.findUniqueOrThrow({
+        where: { reference },
+      });
+      await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${reservation.walletId} FOR UPDATE`;
+      const current = await tx.withdrawalReservation.findUniqueOrThrow({ where: { reference } });
+      if (current.status === outcome) return transactionResponse(current);
+      if (current.status !== 'PENDING') throw new ConflictException('Withdrawal already resolved');
+      return transactionResponse(
+        await tx.withdrawalReservation.update({
+          where: { reference },
+          data: { status: outcome },
+        }),
+      );
+    });
   }
 
   /**
