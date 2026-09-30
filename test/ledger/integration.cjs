@@ -57,13 +57,13 @@ async function main() {
       { sendTransferReceipt: noop, sendTransferReceivedEmail: noop },
       { notifyTransferReceived: noop },
       new ConfigService({ NODE_ENV: 'test', ENABLE_SIMULATED_FUNDING: 'true' }));
-    await service.fundWallet('bob', '10.50', 'fund-1');
+    const firstFunding = await service.fundWallet('bob', '10.50', 'fund-1');
     await service.transferFunds('alice', 'bob@example.com', '1.25', 'transfer-1');
     const balances = (await client.query("SELECT id, \"balanceMinor\" FROM wallets WHERE currency='NGN' ORDER BY id")).rows;
     assert.deepEqual(balances, [{ id: 'alice-wallet', balanceMinor: '9875' }, { id: 'bob-wallet', balanceMinor: '1175' }]); checks++;
     const unbalanced = await client.query(`SELECT "journalId" FROM ledger_entries GROUP BY "journalId" HAVING sum(CASE WHEN side='DEBIT' THEN "amountMinor"::numeric ELSE -"amountMinor"::numeric END) <> 0`);
     assert.equal(unbalanced.rowCount, 0); checks++;
-    await assert.rejects(() => service.fundWallet('bob', '10.50', 'fund-1')); checks++;
+    assert.deepEqual(await service.fundWallet('bob', '10.5', 'fund-1'), firstFunding); checks++;
     assert.equal((await client.query("SELECT count(*)::int AS n FROM ledger_journals WHERE reference='transaction:fund-1'")).rows[0].n, 1); checks++;
 
     // Two competing debits: exactly one can spend the available funds.
@@ -136,6 +136,39 @@ async function main() {
     await reject('TRUNCATE withdrawal_reservations');
     await reject(`INSERT INTO withdrawal_reservations(id,reference,"walletId",currency,"amountMinor","updatedAt") VALUES ('usd','usd','legacy-wallet','NGN',1,now())`);
     await reject(`INSERT INTO withdrawal_reservations(id,reference,"walletId",currency,"amountMinor","updatedAt") VALUES ('large','large','bob-wallet','NGN',99999999,now())`);
+    await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
+
+    // Same key, simultaneous requests: one posting and the exact original response.
+    const beforeRetry = await prisma.wallet.findUniqueOrThrow({where:{id:'bob-wallet'}});
+    const concurrentFunding = await Promise.all([
+      service.fundWallet('bob','1.00','retry-fund'),
+      service.fundWallet('bob','1','retry-fund'),
+    ]);
+    assert.deepEqual(concurrentFunding[0],concurrentFunding[1]); checks++;
+    assert.equal((await prisma.wallet.findUniqueOrThrow({where:{id:'bob-wallet'}})).balanceMinor,beforeRetry.balanceMinor+100n); checks++;
+    await assert.rejects(()=>service.fundWallet('bob','2','retry-fund'), /different request/); checks++;
+    await assert.rejects(()=>service.fundWallet('alice','1','retry-fund'), /different request/); checks++;
+    await assert.rejects(()=>service.transferFunds('bob','alice@example.com','1','retry-fund'), /different request/); checks++;
+    const transfers = await Promise.all([
+      service.transferFunds('bob','alice@example.com','1','retry-transfer'),
+      service.transferFunds('bob','alice@example.com','1.00','retry-transfer'),
+    ]);
+    assert.deepEqual(transfers[0], transfers[1]); checks++;
+    await assert.rejects(()=>service.transferFunds('bob','new@example.com','1','retry-transfer'), /different request/); checks++;
+    assert.equal((await client.query(`SELECT count(*)::int n FROM transactions WHERE "referenceId"='retry-transfer'`)).rows[0].n,1); checks++;
+    // A failed operation leaves no saved success or financial record, so retry can succeed.
+    await assert.rejects(()=>service.transferFunds('new','alice@example.com','1','failed-retry')); checks++;
+    assert.equal(await prisma.walletRequest.count({where:{key:'failed-retry'}}),0); checks++;
+    await service.fundWallet('new','2','new-fund');
+    await service.transferFunds('new','alice@example.com','1','failed-retry'); checks++;
+    await assert.rejects(()=>service.fundWallet('bob','1',' bad key ')); checks++;
+    await reject("UPDATE wallet_requests SET fingerprint='changed' WHERE key='retry-fund'");
+    await reject("DELETE FROM wallet_requests WHERE key='retry-fund'");
+    // Opposite directions still take wallet locks in the same order.
+    await Promise.all([
+      service.transferFunds('bob','new@example.com','0.01','opposite-a'),
+      service.transferFunds('new','bob@example.com','0.01','opposite-b'),
+    ]); checks++;
     await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
     console.log(`Ledger database integration: ${checks} checks passed (migration, posting, retries, concurrency, immutability, rollback).`);
   } finally {

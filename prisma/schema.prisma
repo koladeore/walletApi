@@ -191,3 +191,13 @@ model WithdrawalReservation {
   @@index([walletId, status])
   @@map("withdrawal_reservations")
 }
+
+
+model WalletRequest {
+  key         String @id
+  fingerprint String
+  response    Json
+  createdAt   DateTime @default(now())
+
+  @@map("wallet_requests")
+}

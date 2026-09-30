@@ -35,12 +35,16 @@ export class WalletController {
   })
   @ApiHeader({
     name: 'x-idempotency-key',
-    description: 'Unique key to prevent duplicate funding attempts',
+    description:
+      'Stable key for retries (1–200 letters, digits, . _ : -). Matching retries return the original response.',
     required: true,
   })
   @ApiResponse({ status: 200, description: 'Wallet funded successfully.' })
   @ApiResponse({ status: 403, description: 'Simulated wallet funding is disabled.' })
-  @ApiResponse({ status: 409, description: 'Conflict - Idempotency key already used.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Key reused for a different request or a legacy reference.',
+  })
   async fundWallet(
     @Req() req: AuthenticatedRequest,
     @Body() dto: FundWalletDto,
@@ -57,13 +61,17 @@ export class WalletController {
   @ApiOperation({ summary: 'Transfer funds to another user' })
   @ApiHeader({
     name: 'x-idempotency-key',
-    description: 'Unique key to prevent duplicate transfers',
+    description:
+      'Stable key for retries (1–200 letters, digits, . _ : -). Matching retries return the original response.',
     required: true,
   })
   @ApiResponse({ status: 200, description: 'Funds transferred successfully.' })
   @ApiResponse({ status: 400, description: 'Bad Request - Insufficient balance.' })
   @ApiResponse({ status: 404, description: 'Not Found - Receiver wallet not found.' })
-  @ApiResponse({ status: 409, description: 'Conflict - Idempotency key already used.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Key reused for a different request or a legacy reference.',
+  })
   async transfer(
     @Req() req: AuthenticatedRequest,
     @Body() dto: TransferDto,

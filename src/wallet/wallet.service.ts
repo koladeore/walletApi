@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   MAX_MINOR,
   parseNaira,
@@ -19,6 +20,10 @@ import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto'
 import { EmailService } from '../email/email.service';
 import { NotificationService } from '../notification/notification.service';
 
+// Persist the HTTP representation: dates become ISO strings, monetary values are
+// already strings. This makes first responses and replay responses identical.
+type Wire<T> = T extends Date ? string : T extends object ? { [K in keyof T]: Wire<T[K]> } : T;
+
 @Injectable()
 export class WalletService {
   constructor(
@@ -27,6 +32,45 @@ export class WalletService {
     private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
   ) {}
+
+  private validateKey(key: string) {
+    if (typeof key !== 'string' || !/^[A-Za-z0-9._:-]{1,200}$/.test(key))
+      throw new BadRequestException(
+        'Idempotency key must contain 1–200 letters, digits, dots, underscores, colons or hyphens',
+      );
+  }
+
+  private async idempotent<T>(
+    key: string,
+    request: readonly string[],
+    perform: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<{ value: Wire<T>; replayed: boolean }> {
+    this.validateKey(key);
+    const fingerprint = createHash('sha256').update(JSON.stringify(request)).digest('hex');
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Every request takes this lock before any wallet locks. Hash collisions only
+        // serialize unrelated requests; the table still compares the full key.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))::text`;
+        const saved = await tx.walletRequest.findUnique({ where: { key } });
+        if (saved) {
+          if (saved.fingerprint !== fingerprint)
+            throw new ConflictException('Idempotency key was used for a different request');
+          return { value: saved.response as Wire<T>, replayed: true };
+        }
+        // Old transactions lack a response snapshot. Never repeat them or disclose
+        // another user's result. The caller can reconcile through transaction history.
+        if (await tx.transaction.findUnique({ where: { referenceId: key } }))
+          throw new ConflictException('This reference already exists; check transaction history');
+        const value = JSON.parse(JSON.stringify(await perform(tx))) as Wire<T>;
+        await tx.walletRequest.create({
+          data: { key, fingerprint, response: value as Prisma.InputJsonValue },
+        });
+        return { value, replayed: false };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+  }
 
   /**
    * Simulate funding the wallet
@@ -43,53 +87,58 @@ export class WalletService {
 
     const amountMinor = parseNaira(amount);
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        // Find the user's wallet
-        const wallet = await tx.wallet.findUnique({
-          where: { userId },
-        });
+      const result = await this.idempotent(
+        idempotencyKey,
+        ['fund', userId, 'NGN', amountMinor.toString()],
+        async (tx) => {
+          // Find the user's wallet
+          const wallet = await tx.wallet.findUnique({
+            where: { userId },
+          });
 
-        if (!wallet) {
-          throw new NotFoundException('Wallet not found');
-        }
+          if (!wallet) {
+            throw new NotFoundException('Wallet not found');
+          }
 
-        // Lock the wallet row for update
-        await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
+          // Lock the wallet row for update
+          await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
 
-        const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
-        if (current.currency !== 'NGN')
-          throw new BadRequestException('Only NGN wallets are supported');
-        if (current.balanceMinor + amountMinor > MAX_MINOR)
-          throw new BadRequestException('Wallet balance limit exceeded');
+          const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+          if (current.currency !== 'NGN')
+            throw new BadRequestException('Only NGN wallets are supported');
+          if (current.balanceMinor + amountMinor > MAX_MINOR)
+            throw new BadRequestException('Wallet balance limit exceeded');
 
-        // Create transaction record FIRST to utilize the DB unique constraint on idempotencyKey
-        const transaction = await tx.transaction.create({
-          data: {
-            amountMinor,
-            currency: 'NGN',
-            type: 'CREDIT',
-            status: 'SUCCESS',
-            referenceId: idempotencyKey, // Idempotency
-            receiverWalletId: wallet.id,
-            metadata: { description: 'Wallet Funding', fundingSource: 'SIMULATION' },
-          },
-        });
-
-        // Add funds to wallet
-        const updatedWallet = await tx.wallet.update({
-          where: { id: wallet.id },
-          data: {
-            balanceMinor: {
-              increment: amountMinor,
+          // Create transaction record FIRST to utilize the DB unique constraint on idempotencyKey
+          const transaction = await tx.transaction.create({
+            data: {
+              amountMinor,
+              currency: 'NGN',
+              type: 'CREDIT',
+              status: 'SUCCESS',
+              referenceId: idempotencyKey, // Idempotency
+              receiverWalletId: wallet.id,
+              metadata: { description: 'Wallet Funding', fundingSource: 'SIMULATION' },
             },
-          },
-        });
+          });
 
-        return {
-          wallet: walletResponse(updatedWallet),
-          transaction: transactionResponse(transaction),
-        };
-      });
+          // Add funds to wallet
+          const updatedWallet = await tx.wallet.update({
+            where: { id: wallet.id },
+            data: {
+              balanceMinor: {
+                increment: amountMinor,
+              },
+            },
+          });
+
+          return {
+            wallet: walletResponse(updatedWallet),
+            transaction: transactionResponse(transaction),
+          };
+        },
+      );
+      return result.value;
     } catch (error: unknown) {
       // Prisma unique constraint error code (P2002) for duplicate referenceId (idempotency key)
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -113,107 +162,114 @@ export class WalletService {
     const amountMinor = parseNaira(amount);
 
     try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        // Get sender profile and wallet
-        const sender = await tx.user.findUnique({
-          where: { id: senderId },
-          include: { wallet: true },
-        });
+      const execution = await this.idempotent(
+        idempotencyKey,
+        ['transfer', senderId, receiverEmail, 'NGN', amountMinor.toString()],
+        async (tx) => {
+          // Get sender profile and wallet
+          const sender = await tx.user.findUnique({
+            where: { id: senderId },
+            include: { wallet: true },
+          });
 
-        if (!sender || !sender.wallet) {
-          throw new NotFoundException('Sender wallet not found');
-        }
+          if (!sender || !sender.wallet) {
+            throw new NotFoundException('Sender wallet not found');
+          }
 
-        // Get receiver profile and wallet
-        const receiver = await tx.user.findUnique({
-          where: { email: receiverEmail },
-          include: { wallet: true },
-        });
+          // Get receiver profile and wallet
+          const receiver = await tx.user.findUnique({
+            where: { email: receiverEmail },
+            include: { wallet: true },
+          });
 
-        if (!receiver || !receiver.wallet) {
-          throw new NotFoundException('Receiver wallet not found for the provided email');
-        }
+          if (!receiver || !receiver.wallet) {
+            throw new NotFoundException('Receiver wallet not found for the provided email');
+          }
 
-        if (sender.id === receiver.id) {
-          throw new BadRequestException('Cannot transfer funds to yourself');
-        }
+          if (sender.id === receiver.id) {
+            throw new BadRequestException('Cannot transfer funds to yourself');
+          }
 
-        const senderWallet = sender.wallet;
-        const receiverWallet = receiver.wallet;
+          const senderWallet = sender.wallet;
+          const receiverWallet = receiver.wallet;
 
-        if (senderWallet.currency !== 'NGN' || receiverWallet.currency !== 'NGN') {
-          throw new BadRequestException('Both wallets must use NGN');
-        }
+          if (senderWallet.currency !== 'NGN' || receiverWallet.currency !== 'NGN') {
+            throw new BadRequestException('Both wallets must use NGN');
+          }
 
-        // Ensure predictable locking order to avoid deadlocks (lock smaller ID first)
-        const firstLockId =
-          senderWallet.id < receiverWallet.id ? senderWallet.id : receiverWallet.id;
-        const secondLockId =
-          senderWallet.id < receiverWallet.id ? receiverWallet.id : senderWallet.id;
+          // Ensure predictable locking order to avoid deadlocks (lock smaller ID first)
+          const firstLockId =
+            senderWallet.id < receiverWallet.id ? senderWallet.id : receiverWallet.id;
+          const secondLockId =
+            senderWallet.id < receiverWallet.id ? receiverWallet.id : senderWallet.id;
 
-        // Lock wallets rows mapping FOR UPDATE
-        await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${firstLockId} FOR UPDATE`;
-        await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${secondLockId} FOR UPDATE`;
+          // Lock wallets rows mapping FOR UPDATE
+          await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${firstLockId} FOR UPDATE`;
+          await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${secondLockId} FOR UPDATE`;
 
-        // Check sufficient balance
-        const freshSenderWallet = await tx.wallet.findUnique({ where: { id: senderWallet.id } });
-        if (
-          !freshSenderWallet ||
-          freshSenderWallet.balanceMinor - freshSenderWallet.reservedMinor < amountMinor
-        ) {
-          throw new BadRequestException('Insufficient balance');
-        }
+          // Check sufficient balance
+          const freshSenderWallet = await tx.wallet.findUnique({ where: { id: senderWallet.id } });
+          if (
+            !freshSenderWallet ||
+            freshSenderWallet.balanceMinor - freshSenderWallet.reservedMinor < amountMinor
+          ) {
+            throw new BadRequestException('Insufficient balance');
+          }
 
-        const freshReceiver = await tx.wallet.findUniqueOrThrow({
-          where: { id: receiverWallet.id },
-        });
-        if (freshSenderWallet.currency !== 'NGN' || freshReceiver.currency !== 'NGN') {
-          throw new BadRequestException('Both wallets must use NGN');
-        }
-        if (freshReceiver.balanceMinor + amountMinor > MAX_MINOR)
-          throw new BadRequestException('Recipient balance limit exceeded');
+          const freshReceiver = await tx.wallet.findUniqueOrThrow({
+            where: { id: receiverWallet.id },
+          });
+          if (freshSenderWallet.currency !== 'NGN' || freshReceiver.currency !== 'NGN') {
+            throw new BadRequestException('Both wallets must use NGN');
+          }
+          if (freshReceiver.balanceMinor + amountMinor > MAX_MINOR)
+            throw new BadRequestException('Recipient balance limit exceeded');
 
-        // Create transaction history with Idempotency constraint on referenceId
-        const transactionRecord = await tx.transaction.create({
-          data: {
-            amountMinor,
-            currency: 'NGN',
-            type: 'TRANSFER',
-            status: 'SUCCESS',
-            referenceId: idempotencyKey, // Handles Idempotency
-            senderWalletId: senderWallet.id,
-            receiverWalletId: receiverWallet.id,
-            metadata: { description: `Transfer to ${receiver.email}` },
-          },
-        });
-
-        // Debit sender
-        await tx.wallet.update({
-          where: { id: senderWallet.id },
-          data: {
-            balanceMinor: {
-              decrement: amountMinor,
+          // Create transaction history with Idempotency constraint on referenceId
+          const transactionRecord = await tx.transaction.create({
+            data: {
+              amountMinor,
+              currency: 'NGN',
+              type: 'TRANSFER',
+              status: 'SUCCESS',
+              referenceId: idempotencyKey, // Handles Idempotency
+              senderWalletId: senderWallet.id,
+              receiverWalletId: receiverWallet.id,
+              metadata: { description: `Transfer to ${receiver.email}` },
             },
-          },
-        });
+          });
 
-        // Credit receiver
-        await tx.wallet.update({
-          where: { id: receiverWallet.id },
-          data: {
-            balanceMinor: {
-              increment: amountMinor,
+          // Debit sender
+          await tx.wallet.update({
+            where: { id: senderWallet.id },
+            data: {
+              balanceMinor: {
+                decrement: amountMinor,
+              },
             },
-          },
-        });
+          });
 
-        return {
-          transactionRecord,
-          senderEmail: sender.email,
-          receiverEmail: receiver.email,
-          receiverId: receiver.id,
-        };
-      });
+          // Credit receiver
+          await tx.wallet.update({
+            where: { id: receiverWallet.id },
+            data: {
+              balanceMinor: {
+                increment: amountMinor,
+              },
+            },
+          });
+
+          return {
+            transactionRecord: transactionResponse(transactionRecord),
+            senderEmail: sender.email,
+            receiverEmail: receiver.email,
+            receiverId: receiver.id,
+          };
+        },
+      );
+
+      const result = execution.value;
+      if (execution.replayed) return result.transactionRecord;
 
       // Fire off background jobs
       this.emailService
@@ -230,7 +286,7 @@ export class WalletService {
         .notifyTransferReceived(result.receiverId, formatMinor(amountMinor), result.senderEmail)
         .catch(console.error);
 
-      return transactionResponse(result.transactionRecord);
+      return result.transactionRecord;
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(
@@ -245,9 +301,10 @@ export class WalletService {
   // release requires a definitive payout failure; capture requires verified success.
   async reserveWithdrawal(userId: string, amount: string, reference: string) {
     const amountMinor = parseNaira(amount);
-    if (!reference || reference.length > 200)
-      throw new BadRequestException('Invalid withdrawal reference');
+    this.validateKey(reference);
     return this.prisma.$transaction(async (tx) => {
+      // Serialize global reference collisions before taking the wallet lock.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`withdrawal:${reference}`}, 0))::text`;
       const wallet = await tx.wallet.findUniqueOrThrow({ where: { userId } });
       await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
       const existing = await tx.withdrawalReservation.findUnique({ where: { reference } });

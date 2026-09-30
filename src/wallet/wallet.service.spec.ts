@@ -64,7 +64,9 @@ describe('WalletService simulated funding', () => {
         update: jest.fn().mockResolvedValue({ id: 'wallet-id', balanceMinor: 10000n }),
       },
       $queryRaw: jest.fn().mockResolvedValue([]),
+      walletRequest: { findUnique: jest.fn(), create: jest.fn() },
       transaction: {
+        findUnique: jest.fn(),
         create: jest.fn().mockResolvedValue({ id: 'transaction-id', amountMinor: 10000n }),
       },
     };

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { WalletService } from './wallet.service';
@@ -11,7 +12,8 @@ describe('Integer wallet transfers', () => {
   const tx = {
     user: { findUnique: jest.fn() },
     wallet: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn(), update: jest.fn() },
-    transaction: { create: jest.fn() },
+    transaction: { create: jest.fn(), findUnique: jest.fn() },
+    walletRequest: { findUnique: jest.fn(), create: jest.fn() },
     $queryRaw: jest.fn(),
   };
   const send = jest.fn();
@@ -61,6 +63,43 @@ describe('Integer wallet transfers', () => {
     }).compile();
     service = module.get(WalletService);
   });
+  it('replays the saved result without wallet writes or repeat notifications', async () => {
+    const transactionRecord = { id: 'original', amountMinor: '100', amount: '1.00' };
+    tx.walletRequest.findUnique.mockResolvedValue({
+      fingerprint: createHash('sha256')
+        .update(JSON.stringify(['transfer', 'sender', 'r@example.com', 'NGN', '100']))
+        .digest('hex'),
+      response: {
+        transactionRecord,
+        senderEmail: 's@example.com',
+        receiverEmail: 'r@example.com',
+        receiverId: 'receiver',
+      },
+    });
+    await expect(service.transferFunds('sender', 'r@example.com', '1.00', 'key')).resolves.toEqual(
+      transactionRecord,
+    );
+    expect(tx.user.findUnique).not.toHaveBeenCalled();
+    expect(tx.wallet.update).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+  it('rejects legacy references without repeating or disclosing their transaction', async () => {
+    tx.transaction.findUnique.mockResolvedValue({ id: 'legacy' });
+    await expect(service.transferFunds('sender', 'r@example.com', '1', 'key')).rejects.toThrow(
+      'check transaction history',
+    );
+    expect(tx.wallet.update).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+  it.each(['', ' ', 'a b', 'x'.repeat(201)])(
+    'rejects invalid key %p before taking locks',
+    async (key) => {
+      await expect(service.transferFunds('sender', 'r@example.com', '1', key)).rejects.toThrow(
+        'Idempotency key',
+      );
+      expect(tx.$queryRaw).not.toHaveBeenCalled();
+    },
+  );
   it('moves an exact amount above Number.MAX_SAFE_INTEGER and returns JSON-safe strings', async () => {
     const result = await service.transferFunds(
       'sender',
