@@ -1,3 +1,4 @@
+import { FinancialReasonDto } from '../common/dto/financial-reason.dto';
 import {
   Controller,
   Get,
@@ -87,6 +88,20 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  @Post(':id/close')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Permanently close a settled account while retaining history (admin only)',
+  })
+  closeAccount(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: FinancialReasonDto,
+  ) {
+    return this.usersService.closeAccount(req.user.id, id, dto.reason);
   }
 
   @Patch(':id/status')

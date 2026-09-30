@@ -51,7 +51,7 @@ export class WalletService {
       async (tx) => {
         // Every request takes this lock before any wallet locks. Hash collisions only
         // serialize unrelated requests; the table still compares the full key.
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))::text`;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`wallet-request:${key}`}, 0))::text`;
         const saved = await tx.walletRequest.findUnique({ where: { key } });
         if (saved) {
           if (saved.fingerprint !== fingerprint)
@@ -104,6 +104,7 @@ export class WalletService {
           await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
 
           const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+          if (current.closedAt) throw new ConflictException('Wallet is closed');
           if (current.currency !== 'NGN')
             throw new BadRequestException('Only NGN wallets are supported');
           if (current.balanceMinor + amountMinor > MAX_MINOR)
@@ -219,6 +220,8 @@ export class WalletService {
           const freshReceiver = await tx.wallet.findUniqueOrThrow({
             where: { id: receiverWallet.id },
           });
+          if (freshSenderWallet.closedAt || freshReceiver.closedAt)
+            throw new ConflictException('Wallet is closed');
           if (freshSenderWallet.currency !== 'NGN' || freshReceiver.currency !== 'NGN') {
             throw new BadRequestException('Both wallets must use NGN');
           }
@@ -297,6 +300,97 @@ export class WalletService {
     }
   }
 
+  async reverseTransaction(actorId: string, transactionId: string, reason: string, key: string) {
+    if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500)
+      throw new BadRequestException('A reason of 1–500 characters is required');
+    reason = reason.trim();
+    const actor = await this.prisma.user.findUnique({ where: { id: actorId } });
+    if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
+      throw new ForbiddenException();
+    const result = await this.idempotent(
+      key,
+      ['reversal', actorId, transactionId, reason],
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${actorId} FOR UPDATE`;
+        const admin = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
+        if (!admin.isActive || admin.closedAt || admin.role !== 'ADMIN')
+          throw new ForbiddenException();
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`reversal:${transactionId}`}, 0))::text`;
+        const original = await tx.transaction.findUnique({
+          where: { id: transactionId },
+          include: { ledgerJournal: true, reversal: true },
+        });
+        if (!original) throw new NotFoundException('Transaction not found');
+        if (original.reversal) throw new ConflictException('Transaction already reversed');
+        if (
+          original.status !== 'SUCCESS' ||
+          original.reversalOfId ||
+          !original.ledgerJournal ||
+          original.type === 'DEBIT'
+        )
+          throw new BadRequestException(
+            'Only posted internal transfers and funding can be reversed; withdrawals require provider reconciliation',
+          );
+        const ids = [original.senderWalletId, original.receiverWalletId]
+          .filter((id): id is string => id !== null)
+          .sort();
+        for (const id of ids)
+          await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${id} FOR UPDATE`;
+        if (!original.receiverWalletId)
+          throw new BadRequestException('Original credit wallet is missing');
+        const debit = await tx.wallet.findUniqueOrThrow({
+          where: { id: original.receiverWalletId },
+        });
+        if (debit.closedAt) throw new ConflictException('Cannot reverse through a closed wallet');
+        if (debit.balanceMinor - debit.reservedMinor < original.amountMinor)
+          throw new BadRequestException('Insufficient available balance to reverse');
+        if (original.senderWalletId) {
+          const credit = await tx.wallet.findUniqueOrThrow({
+            where: { id: original.senderWalletId },
+          });
+          if (credit.closedAt)
+            throw new ConflictException('Cannot reverse through a closed wallet');
+          if (credit.balanceMinor + original.amountMinor > MAX_MINOR)
+            throw new BadRequestException('Wallet balance limit exceeded');
+          await tx.wallet.update({
+            where: { id: credit.id },
+            data: { balanceMinor: { increment: original.amountMinor } },
+          });
+        }
+        await tx.wallet.update({
+          where: { id: debit.id },
+          data: { balanceMinor: { decrement: original.amountMinor } },
+        });
+        const reversal = await tx.transaction.create({
+          data: {
+            reversalOfId: original.id,
+            amountMinor: original.amountMinor,
+            currency: original.currency,
+            type: original.type === 'TRANSFER' ? 'TRANSFER' : 'DEBIT',
+            status: 'SUCCESS',
+            referenceId: key,
+            senderWalletId: original.receiverWalletId,
+            receiverWalletId: original.senderWalletId,
+            metadata: { reason, actorId },
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            action: 'TRANSACTION_REVERSED',
+            metadata: {
+              originalTransactionId: original.id,
+              reversalTransactionId: reversal.id,
+              reason,
+            },
+          },
+        });
+        return transactionResponse(reversal);
+      },
+    );
+    return result.value;
+  }
+
   // Internal payout orchestration only. Never expose capture/release to customers:
   // release requires a definitive payout failure; capture requires verified success.
   async reserveWithdrawal(userId: string, amount: string, reference: string) {
@@ -314,6 +408,7 @@ export class WalletService {
         return transactionResponse(existing);
       }
       const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+      if (current.closedAt) throw new ConflictException('Wallet is closed');
       if (current.currency !== 'NGN')
         throw new BadRequestException('Only NGN wallets are supported');
       if (current.balanceMinor - current.reservedMinor < amountMinor)

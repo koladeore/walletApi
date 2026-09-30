@@ -1,5 +1,8 @@
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { FinancialReasonDto } from '../common/dto/financial-reason.dto';
 import {
   Controller,
+  Param,
   Post,
   Get,
   Query,
@@ -86,6 +89,20 @@ export class WalletController {
       dto.amount,
       idempotencyKey,
     );
+  }
+
+  @Post('transactions/:id/reverse')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Reverse a full internal transfer or simulated funding (admin only)' })
+  @ApiHeader({ name: 'x-idempotency-key', required: true })
+  reverseTransaction(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: FinancialReasonDto,
+    @Headers('x-idempotency-key') key: string,
+  ) {
+    return this.walletService.reverseTransaction(req.user.id, id, dto.reason, key);
   }
 
   @Get('transactions')

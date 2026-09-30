@@ -5,6 +5,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import type { App } from 'supertest/types';
+import { WalletController } from '../wallet/wallet.controller';
+import { WalletService } from '../wallet/wallet.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
@@ -21,15 +23,18 @@ describe('User route access', () => {
     getWallet: jest.fn(),
     lookupRecipient: jest.fn(),
     updateStatus: jest.fn(),
+    closeAccount: jest.fn(),
   };
+  const wallets = { reverseTransaction: jest.fn() };
   const token = (sub: string, role = 'USER') => jwt.sign({ sub, role });
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       imports: [PassportModule],
-      controllers: [UsersController],
+      controllers: [UsersController, WalletController],
       providers: [
         JwtStrategy,
+        { provide: WalletService, useValue: wallets },
         { provide: UsersService, useValue: users },
         { provide: ConfigService, useValue: { getOrThrow: () => 'test-only-role-secret' } },
       ],
@@ -126,6 +131,56 @@ describe('User route access', () => {
       .auth(token('user'), { type: 'bearer' })
       .send({ email: profile.email })
       .expect(404);
+  });
+  it.each([`/users/${id}/close`, `/wallet/transactions/${id}/reverse`])(
+    'restricts financial admin action %s',
+    async (path) => {
+      await request(app.getHttpServer())
+        .post(`/api/v1${path}`)
+        .send({ reason: 'Review' })
+        .expect(401);
+      await request(app.getHttpServer())
+        .post(`/api/v1${path}`)
+        .auth(token('user', 'ADMIN'), { type: 'bearer' })
+        .send({ reason: 'Review' })
+        .expect(403);
+      expect(users.closeAccount).not.toHaveBeenCalled();
+      expect(wallets.reverseTransaction).not.toHaveBeenCalled();
+    },
+  );
+  it.each([`/users/${id}/close`, `/wallet/transactions/${id}/reverse`])(
+    'requires a reason for %s',
+    async (path) => {
+      await request(app.getHttpServer())
+        .post(`/api/v1${path}`)
+        .auth(token('admin'), { type: 'bearer' })
+        .send({ reason: '  ' })
+        .expect(400);
+    },
+  );
+  it('allows an admin to reverse with a key and trimmed reason', async () => {
+    wallets.reverseTransaction.mockResolvedValue({ id: 'reversal' });
+    await request(app.getHttpServer())
+      .post(`/api/v1/wallet/transactions/${id}/reverse`)
+      .auth(token('admin'), { type: 'bearer' })
+      .set('x-idempotency-key', 'reverse-test')
+      .send({ reason: ' Correction ' })
+      .expect(200);
+    expect(wallets.reverseTransaction).toHaveBeenCalledWith(
+      profile.id,
+      id,
+      'Correction',
+      'reverse-test',
+    );
+  });
+  it('allows an admin to close with a trimmed reason', async () => {
+    users.closeAccount.mockResolvedValue({ id, isActive: false });
+    await request(app.getHttpServer())
+      .post(`/api/v1/users/${id}/close`)
+      .auth(token('admin'), { type: 'bearer' })
+      .send({ reason: ' Settled ' })
+      .expect(200);
+    expect(users.closeAccount).toHaveBeenCalledWith(profile.id, id, 'Settled');
   });
   it('blocks unauthenticated status changes', async () => {
     await request(app.getHttpServer())

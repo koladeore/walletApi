@@ -28,6 +28,7 @@ describe('Account status enforcement', () => {
       isActive: true,
       role: 'USER',
       authVersion: 0,
+      closedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const { ConfigService } = require('@nestjs/config');
 const { PrismaService } = require('../../src/prisma/prisma.service');
+const { UsersService } = require('../../src/users/users.service');
 const { WalletService } = require('../../src/wallet/wallet.service');
 
 async function main() {
@@ -169,6 +170,51 @@ async function main() {
       service.transferFunds('bob','new@example.com','0.01','opposite-a'),
       service.transferFunds('new','bob@example.com','0.01','opposite-b'),
     ]); checks++;
+    await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
+
+    await prisma.user.create({data:{id:'admin',email:'admin@example.com',password:'test',role:'ADMIN'}});
+    const users = new UsersService(prisma, {});
+    await prisma.user.create({data:{id:'closing',email:'closing@example.com',password:'test',wallet:{create:{id:'closing-wallet',currency:'NGN'}}}});
+    const source = await service.fundWallet('closing','10','closure-funding');
+    await assert.rejects(()=>users.closeAccount('admin','closing','Close settled account')); checks++;
+    await service.reserveWithdrawal('closing','10','reversal-hold');
+    await assert.rejects(()=>service.reverseTransaction('admin',source.transaction.id,'Correction','held-reverse'), /Insufficient/); checks++;
+    assert.equal(await prisma.walletRequest.count({where:{key:'held-reverse'}}),0); checks++;
+    await service.resolveWithdrawal('reversal-hold','RELEASED');
+    const reversal = await service.reverseTransaction('admin',source.transaction.id,'Correct simulation','reverse-fund');
+    assert.equal(reversal.reversalOfId,source.transaction.id); checks++;
+    assert.deepEqual(await service.reverseTransaction('admin',source.transaction.id,'Correct simulation','reverse-fund'),reversal); checks++;
+    await assert.rejects(()=>service.reverseTransaction('admin',source.transaction.id,'Again','reverse-again')); checks++;
+    await assert.rejects(()=>service.reverseTransaction('bob',source.transaction.id,'Unauthorized','no-admin')); checks++;
+    const originalAfter = await prisma.transaction.findUniqueOrThrow({where:{id:source.transaction.id}});
+    assert.equal(originalAfter.status,'SUCCESS'); checks++;
+    const entryPairs = await client.query(`SELECT e."accountId",e.side,e."amountMinor" FROM ledger_entries e JOIN ledger_journals j ON j.id=e."journalId" WHERE j."transactionId"=$1 ORDER BY e."accountId"`,[source.transaction.id]);
+    const reversedEntries = await client.query(`SELECT e."accountId",e.side,e."amountMinor" FROM ledger_entries e JOIN ledger_journals j ON j.id=e."journalId" WHERE j."transactionId"=$1 ORDER BY e."accountId"`,[reversal.id]);
+    assert.deepEqual(reversedEntries.rows,entryPairs.rows.map(e=>({...e,side:e.side==='DEBIT'?'CREDIT':'DEBIT'}))); checks++;
+    await prisma.authToken.create({data:{userId:'closing',token:'closure-token',expiresAt:new Date(Date.now()+60000)}});
+    const closed = await users.closeAccount('admin','closing','Account settled');
+    assert.ok(closed.closedAt); checks++;
+    assert.deepEqual(await users.closeAccount('admin','closing','Account settled'),closed); checks++;
+    const closedUser = await prisma.user.findUniqueOrThrow({where:{id:'closing'}});
+    assert.equal(closedUser.isActive,false); assert.equal(closedUser.authVersion,1); checks++;
+    assert.equal((await prisma.authToken.findUniqueOrThrow({where:{token:'closure-token'}})).isRevoked,true); checks++;
+    assert.equal(await prisma.transaction.count({where:{OR:[{senderWalletId:'closing-wallet'},{receiverWalletId:'closing-wallet'}]}}),2); checks++;
+    await assert.rejects(()=>service.fundWallet('closing','1','closed-fund')); checks++;
+    await assert.rejects(()=>service.transferFunds('bob','closing@example.com','0.01','closed-transfer')); checks++;
+    await assert.rejects(()=>service.reserveWithdrawal('closing','1','closed-reserve')); checks++;
+    await assert.rejects(()=>users.updateStatus('admin','closing',{isActive:true,reason:'Reopen'})); checks++;
+    await reject(`DELETE FROM users WHERE id='closing'`);
+    await reject(`DELETE FROM wallets WHERE id='closing-wallet'`);
+    await reject(`UPDATE users SET "isActive"=true WHERE id='closing'`);
+    await reject(`UPDATE users SET "closedAt"=NULL WHERE id='closing'`);
+    await reject(`UPDATE wallets SET "closedAt"=NULL WHERE id='closing-wallet'`);
+    const transferForReversal = await service.transferFunds('bob','new@example.com','0.10','reversible-transfer');
+    const reverseRace = await Promise.allSettled([
+      service.reverseTransaction('admin',transferForReversal.id,'Correction','reverse-race-a'),
+      service.reverseTransaction('admin',transferForReversal.id,'Correction','reverse-race-b'),
+    ]);
+    assert.equal(reverseRace.filter(x=>x.status==='fulfilled').length,1); checks++;
+    await assert.rejects(()=>service.reverseTransaction('admin',reversal.id,'Undo reversal','undo-reverse')); checks++;
     await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
     console.log(`Ledger database integration: ${checks} checks passed (migration, posting, retries, concurrency, immutability, rollback).`);
   } finally {

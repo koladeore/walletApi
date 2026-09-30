@@ -32,6 +32,7 @@ model User {
   isActive     Boolean      @default(true)
   role         Role         @default(USER)
   authVersion  Int          @default(0)
+  closedAt     DateTime?
   
   wallet       Wallet?
   authTokens   AuthToken[]
@@ -48,11 +49,12 @@ model Wallet {
   id                  String        @id @default(uuid())
   balanceMinor        BigInt        @default(0)
   reservedMinor       BigInt        @default(0)
+  closedAt            DateTime?
   reservations        WithdrawalReservation[]
   currency            String        @default("NGN")
   
   userId              String        @unique
-  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   sentTransactions     Transaction[] @relation("SentTransactions")
   receivedTransactions Transaction[] @relation("ReceivedTransactions")
@@ -64,6 +66,9 @@ model Wallet {
 }
 
 model Transaction {
+  reversalOfId String? @unique
+  reversalOf Transaction? @relation("TransactionReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversal Transaction? @relation("TransactionReversal")
   ledgerJournal LedgerJournal?
   id               String            @id @default(uuid())
   amountMinor      BigInt

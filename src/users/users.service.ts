@@ -118,6 +118,43 @@ export class UsersService {
     return createdUser;
   }
 
+  async closeAccount(actorId: string, userId: string, reason: string) {
+    if (actorId === userId)
+      throw new BadRequestException('You cannot close your own admin account');
+    if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500)
+      throw new BadRequestException('A reason of 1–500 characters is required');
+    return this.prisma.$transaction(async (tx) => {
+      for (const id of [actorId, userId].sort())
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${id} FOR UPDATE`;
+      const actor = await tx.user.findUnique({ where: { id: actorId } });
+      if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
+        throw new ForbiddenException();
+      const target = await tx.user.findUnique({ where: { id: userId } });
+      if (!target) throw new NotFoundException('User not found');
+      if (target.closedAt) return { id: target.id, closedAt: target.closedAt, isActive: false };
+      const wallet = await tx.wallet.findUnique({ where: { userId } });
+      if (wallet) {
+        await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
+        const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+        if (current.balanceMinor !== 0n || current.reservedMinor !== 0n)
+          throw new ConflictException('Settle the balance and pending withdrawals before closure');
+      }
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { closedAt: new Date(), isActive: false },
+        select: { id: true, closedAt: true, isActive: true },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: 'ACCOUNT_CLOSED',
+          metadata: { targetUserId: userId, reason: reason.trim() },
+        },
+      });
+      return user;
+    });
+  }
+
   async updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto) {
     if (actorId === userId && !dto.isActive) {
       throw new BadRequestException('You cannot deactivate your own account');
@@ -132,6 +169,7 @@ export class UsersService {
       if (!actor?.isActive || actor.role !== 'ADMIN') throw new ForbiddenException();
       const target = await tx.user.findUnique({ where: { id: userId } });
       if (!target) throw new NotFoundException('User not found');
+      if (target.closedAt) throw new ConflictException('Closed accounts cannot change status');
 
       const changed = target.isActive !== dto.isActive;
       const user = await tx.user.update({
