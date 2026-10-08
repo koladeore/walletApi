@@ -23,6 +23,7 @@ const bullmq_1 = require("@nestjs/bullmq");
 const email_module_1 = require("./email/email.module");
 const notification_module_1 = require("./notification/notification.module");
 const paystack_module_1 = require("./paystack/paystack.module");
+const funding_module_1 = require("./funding/funding.module");
 function prettyLogTarget() {
     if (process.env.NODE_ENV === 'production')
         return undefined;
@@ -64,6 +65,7 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             wallet_module_1.WalletModule,
             paystack_module_1.PaystackModule,
+            funding_module_1.FundingModule,
             email_module_1.EmailModule,
             notification_module_1.NotificationModule,
             bullmq_1.BullModule.forRootAsync({

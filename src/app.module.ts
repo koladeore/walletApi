@@ -14,6 +14,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { EmailModule } from './email/email.module';
 import { NotificationModule } from './notification/notification.module';
 import { PaystackModule } from './paystack/paystack.module';
+import { FundingModule } from './funding/funding.module';
 
 function prettyLogTarget(): string | undefined {
   if (process.env.NODE_ENV === 'production') return undefined;
@@ -55,6 +56,7 @@ const prettyTarget = prettyLogTarget();
     UsersModule,
     WalletModule,
     PaystackModule,
+    FundingModule,
     EmailModule,
     NotificationModule,
     BullModule.forRootAsync({

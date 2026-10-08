@@ -37,6 +37,7 @@ model User {
   wallet       Wallet?
   authTokens   AuthToken[]
   auditLogs    AuditLog[]
+  fundingRequests FundingRequest[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -51,6 +52,7 @@ model Wallet {
   reservedMinor       BigInt        @default(0)
   closedAt            DateTime?
   reservations        WithdrawalReservation[]
+  fundingRequests     FundingRequest[]
   currency            String        @default("NGN")
   
   userId              String        @unique
@@ -205,4 +207,38 @@ model WalletRequest {
   createdAt   DateTime @default(now())
 
   @@map("wallet_requests")
+}
+
+enum FundingStatus {
+  INITIALIZING
+  PENDING
+  INITIALIZATION_UNKNOWN
+  SUCCESS
+  FAILED
+}
+
+// Expected payment details are captured before calling the provider.
+model FundingRequest {
+  id               String @id @default(uuid())
+  reference        String @unique
+  idempotencyKey   String
+  userId           String
+  user             User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  walletId         String
+  wallet           Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  expectedEmail    String
+  amountMinor      BigInt
+  currency         String
+  provider         String @default("PAYSTACK")
+  providerMode     String @default("test")
+  status           FundingStatus @default(INITIALIZING)
+  authorizationUrl String?
+  accessCode       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, createdAt])
+  @@index([walletId, createdAt])
+  @@map("funding_requests")
 }

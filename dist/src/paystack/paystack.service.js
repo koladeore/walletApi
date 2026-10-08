@@ -17,12 +17,67 @@ let PaystackService = class PaystackService {
     constructor(config) {
         this.config = config;
     }
-    async checkConnection() {
-        const key = this.config.get('PAYSTACK_SECRET_KEY');
+    assertEnabled() {
         if (this.config.get('PAYSTACK_ENABLED') !== 'true')
             throw new common_1.ServiceUnavailableException('Paystack integration is disabled');
-        if (!key || !/^sk_test_[A-Za-z0-9]+$/.test(key))
+        if (!/^sk_test_[A-Za-z0-9]+$/.test(this.config.get('PAYSTACK_SECRET_KEY') ?? ''))
             throw new common_1.ServiceUnavailableException('Paystack test credentials are not configured');
+    }
+    async initializePayment(input) {
+        this.assertEnabled();
+        try {
+            const response = await fetch('https://api.paystack.co/transaction/initialize', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${this.config.getOrThrow('PAYSTACK_SECRET_KEY')}`,
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: input.email,
+                    amount: input.amountMinor.toString(),
+                    currency: input.currency,
+                    reference: input.reference,
+                }),
+                signal: AbortSignal.timeout(10_000),
+                redirect: 'error',
+            });
+            if (!response.ok)
+                throw new Error('Provider rejected initialization');
+            const body = await response.json();
+            if (!body ||
+                typeof body !== 'object' ||
+                !('status' in body) ||
+                body.status !== true ||
+                !('data' in body))
+                throw new Error('Invalid provider response');
+            const data = body.data;
+            if (!data ||
+                typeof data !== 'object' ||
+                !('reference' in data) ||
+                data.reference !== input.reference ||
+                !('authorization_url' in data) ||
+                typeof data.authorization_url !== 'string' ||
+                !('access_code' in data) ||
+                typeof data.access_code !== 'string' ||
+                !data.access_code)
+                throw new Error('Invalid checkout response');
+            const url = new URL(data.authorization_url);
+            if (url.protocol !== 'https:' ||
+                url.hostname !== 'checkout.paystack.com' ||
+                url.username ||
+                url.password ||
+                url.port)
+                throw new Error('Invalid checkout URL');
+            return { authorizationUrl: data.authorization_url, accessCode: data.access_code };
+        }
+        catch {
+            throw new common_1.ServiceUnavailableException('Paystack payment initialization could not be confirmed');
+        }
+    }
+    async checkConnection() {
+        this.assertEnabled();
+        const key = this.config.get('PAYSTACK_SECRET_KEY');
         try {
             const response = await fetch('https://api.paystack.co/balance', {
                 method: 'GET',

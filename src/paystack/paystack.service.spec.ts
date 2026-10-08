@@ -48,4 +48,60 @@ describe('Paystack test integration', () => {
     fetchMock.mockRejectedValue(new Error(`network error ${key}`));
     await expect(service().checkConnection()).rejects.toThrow('Paystack connection check failed');
   });
+
+  const input = {
+    email: 'owner@example.com',
+    amountMinor: 10050n,
+    currency: 'NGN' as const,
+    reference: 'fund-test123',
+  };
+  const checkout = {
+    reference: input.reference,
+    authorization_url: 'https://checkout.paystack.com/test',
+    access_code: 'code',
+  };
+
+  it('initializes exact expected payment details and validates the returned reference', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: true, data: checkout })));
+    await expect(service().initializePayment(input)).resolves.toEqual({
+      authorizationUrl: checkout.authorization_url,
+      accessCode: 'code',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.paystack.co/transaction/initialize',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          email: input.email,
+          amount: '10050',
+          currency: 'NGN',
+          reference: input.reference,
+        }),
+        headers: {
+          Authorization: `Bearer ${key}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        redirect: 'error',
+      }),
+    );
+  });
+
+  it.each([
+    { ...checkout, reference: 'wrong-reference' },
+    { ...checkout, authorization_url: 'https://evil.example/test' },
+    { ...checkout, authorization_url: 'http://checkout.paystack.com/test' },
+    { ...checkout, authorization_url: 'https://private@checkout.paystack.com/test' },
+    { ...checkout, access_code: '' },
+  ])('rejects malformed checkout responses', async (data) => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: true, data })));
+    await expect(service().initializePayment(input)).rejects.toThrow('could not be confirmed');
+  });
+
+  it('sanitizes initialization network failures', async () => {
+    fetchMock.mockRejectedValue(new Error(`private error ${key}`));
+    await expect(service().initializePayment(input)).rejects.toThrow(
+      'Paystack payment initialization could not be confirmed',
+    );
+  });
 });
