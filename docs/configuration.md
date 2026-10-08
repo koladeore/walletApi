@@ -12,8 +12,23 @@ The API validates configuration at startup, before serving requests. Errors name
 | REDIS_HOST | Required in production; defaults to localhost in development/test |
 | ENABLE_SIMULATED_FUNDING | `true` or `false`; default false; true is rejected in production |
 | RESEND_API_KEY | Optional for local mock delivery; if supplied, must begin with `re_` |
+| PAYSTACK_ENABLED | `true` or `false`; default false |
+| PAYSTACK_SECRET_KEY | Required when enabled; only `sk_test_` secret keys are accepted, even in production |
 
 Validation checks syntax and policy, not whether database/Redis credentials work or a provider key is valid. Length checks cannot prove randomness: generate secrets cryptographically. The application still permits mock email without a Resend key; configure real delivery before launch.
+
+## Paystack test integration
+
+1. In your Paystack dashboard, open **API Keys & Webhooks** and copy the **test secret key** (`sk_test_...`). Never send the secret in chat or put it in frontend code.
+2. In your ignored local `.env`, set `PAYSTACK_ENABLED=true` and `PAYSTACK_SECRET_KEY` to that key. Restrict local file access with `chmod 600 .env`. Keep `.env.example` blank.
+3. Run `npm run paystack:check`. This builds the app and makes one authenticated, read-only `GET /balance` request. Success prints only `Paystack test connection verified.` No wallet balance is changed. It does not start the API or connect to the database/Redis, but requires the normal environment settings to pass validation.
+4. Restart the API after changing configuration. Compose forwards both settings to the API container.
+
+Paystack uses `https://api.paystack.co` for both environments; the key determines test or live mode. This integration deliberately accepts only test keys. No public key is needed for this server-side step. The client uses a 10-second timeout, rejects redirects, and never exposes provider error bodies or credentials. Initialization, webhooks, and wallet crediting are separate upcoming steps.
+
+For deployed environments, inject the key through your hosting platform's secret manager rather than a committed file or container image. Limit who can read it and rotate it in Paystack if exposed. Do not paste expanded Compose configuration or environment dumps into logs or shared messages.
+
+References: [Paystack authentication and secret storage](https://paystack.com/docs/api/authentication/) and [read-only balance check](https://paystack.com/docs/transfers/managing-transfers/).
 
 ## Generate signing secrets
 

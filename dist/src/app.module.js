@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const environment_1 = require("./config/environment");
 const nestjs_pino_1 = require("nestjs-pino");
 const throttler_1 = require("@nestjs/throttler");
 const core_1 = require("@nestjs/core");
@@ -21,6 +22,18 @@ const wallet_module_1 = require("./wallet/wallet.module");
 const bullmq_1 = require("@nestjs/bullmq");
 const email_module_1 = require("./email/email.module");
 const notification_module_1 = require("./notification/notification.module");
+const paystack_module_1 = require("./paystack/paystack.module");
+function prettyLogTarget() {
+    if (process.env.NODE_ENV === 'production')
+        return undefined;
+    try {
+        return require.resolve('pino-pretty');
+    }
+    catch {
+        return undefined;
+    }
+}
+const prettyTarget = prettyLogTarget();
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -29,15 +42,16 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
+                validate: environment_1.validateEnvironment,
             }),
             nestjs_pino_1.LoggerModule.forRoot({
                 pinoHttp: {
                     customProps: () => ({
                         context: 'HTTP',
                     }),
-                    transport: process.env.NODE_ENV !== 'production'
+                    transport: prettyTarget
                         ? {
-                            target: 'pino-pretty',
+                            target: prettyTarget,
                             options: {
                                 singleLine: true,
                             },
@@ -49,13 +63,17 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             wallet_module_1.WalletModule,
+            paystack_module_1.PaystackModule,
             email_module_1.EmailModule,
             notification_module_1.NotificationModule,
-            bullmq_1.BullModule.forRoot({
-                connection: {
-                    host: process.env.REDIS_HOST || 'localhost',
-                    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-                },
+            bullmq_1.BullModule.forRootAsync({
+                inject: [config_1.ConfigService],
+                useFactory: (config) => ({
+                    connection: {
+                        host: config.getOrThrow('REDIS_HOST'),
+                        port: config.getOrThrow('REDIS_PORT'),
+                    },
+                }),
             }),
             throttler_1.ThrottlerModule.forRoot([
                 {

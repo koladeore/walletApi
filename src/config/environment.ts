@@ -81,6 +81,17 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     errors.push('ENABLE_SIMULATED_FUNDING must be false in production');
   }
   const resendKey = config.RESEND_API_KEY;
+  const paystackEnabled = text('PAYSTACK_ENABLED', 'false');
+  if (!['true', 'false'].includes(paystackEnabled))
+    errors.push('PAYSTACK_ENABLED must be true or false');
+  const paystackKey = config.PAYSTACK_SECRET_KEY ?? '';
+  if (
+    typeof paystackKey !== 'string' ||
+    (paystackKey !== '' && !/^sk_test_[A-Za-z0-9]+$/.test(paystackKey))
+  )
+    errors.push('PAYSTACK_SECRET_KEY must be a test secret key beginning with sk_test_');
+  if (paystackEnabled === 'true' && !paystackKey)
+    errors.push('PAYSTACK_SECRET_KEY is required when PAYSTACK_ENABLED is true');
   if (resendKey && (typeof resendKey !== 'string' || !resendKey.startsWith('re_'))) {
     errors.push('RESEND_API_KEY must be empty or a Resend API key');
   }
@@ -97,5 +108,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     JWT_EXPIRES_IN: accessTtl,
     REFRESH_EXPIRES_IN: refreshTtl,
     ENABLE_SIMULATED_FUNDING: simulation,
+    PAYSTACK_ENABLED: paystackEnabled,
+    PAYSTACK_SECRET_KEY: paystackKey,
   };
 }

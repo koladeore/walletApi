@@ -9,6 +9,23 @@ const valid = () => ({
 });
 
 describe('Startup configuration', () => {
+  it('accepts an enabled test integration and does not echo rejected provider secrets', () => {
+    expect(
+      validateEnvironment({
+        ...valid(),
+        PAYSTACK_ENABLED: 'true',
+        PAYSTACK_SECRET_KEY: 'sk_test_example123',
+      }).PAYSTACK_ENABLED,
+    ).toBe('true');
+    const secret = 'sk_live_private123';
+    try {
+      validateEnvironment({ ...valid(), PAYSTACK_SECRET_KEY: secret });
+      throw new Error('Expected rejection');
+    } catch (error) {
+      expect((error as Error).message).toContain('PAYSTACK_SECRET_KEY');
+      expect((error as Error).message).not.toContain(secret);
+    }
+  });
   it('accepts valid production settings and normalizes safe defaults', () => {
     expect(validateEnvironment(valid())).toEqual({
       ...valid(),
@@ -17,6 +34,8 @@ describe('Startup configuration', () => {
       JWT_EXPIRES_IN: 900,
       REFRESH_EXPIRES_IN: 604800,
       ENABLE_SIMULATED_FUNDING: 'false',
+      PAYSTACK_ENABLED: 'false',
+      PAYSTACK_SECRET_KEY: '',
     });
   });
   it.each(['NODE_ENV', 'DATABASE_URL', 'REDIS_HOST', 'JWT_SECRET', 'REFRESH_SECRET'])(
@@ -43,6 +62,10 @@ describe('Startup configuration', () => {
     ['REFRESH_EXPIRES_IN', '366d'],
     ['ENABLE_SIMULATED_FUNDING', 'TRUE'],
     ['ENABLE_SIMULATED_FUNDING', 'true'],
+    ['PAYSTACK_ENABLED', 'TRUE'],
+    ['PAYSTACK_ENABLED', 'true'],
+    ['PAYSTACK_SECRET_KEY', 'sk_live_private'],
+    ['PAYSTACK_SECRET_KEY', 'pk_test_private'],
   ])('rejects unsafe or invalid %s', (key, value) => {
     expect(() => validateEnvironment({ ...valid(), [key]: value })).toThrow(key);
   });

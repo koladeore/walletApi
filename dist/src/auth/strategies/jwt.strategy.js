@@ -30,6 +30,9 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         if (!user || !user.isActive) {
             throw new common_1.UnauthorizedException();
         }
+        if ((payload.authVersion ?? 0) !== user.authVersion) {
+            throw new common_1.UnauthorizedException();
+        }
         return user;
     }
 };

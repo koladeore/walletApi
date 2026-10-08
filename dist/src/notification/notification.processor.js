@@ -15,9 +15,11 @@ let NotificationProcessor = NotificationProcessor_1 = class NotificationProcesso
     process(job) {
         this.logger.log(`Processing notification job: ${job.name} (ID: ${job.id})`);
         try {
+            if (job.data.currency !== 'NGN')
+                throw new Error('Legacy notification requires currency review before replay');
             switch (job.name) {
                 case 'transfer-received':
-                    this.logger.log(`[SIMULATED PUSH] User ${job.data.userId} received $${job.data.amount} from ${job.data.senderEmail}`);
+                    this.logger.log(`[SIMULATED PUSH] User ${job.data.userId} received NGN ${job.data.amount} from ${job.data.senderEmail}`);
                     break;
                 default:
                     this.logger.warn(`Unknown job name: ${job.name}`);

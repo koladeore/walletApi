@@ -65,7 +65,7 @@ let AuthService = class AuthService {
     }
     async login(dto) {
         const user = await this.usersService.findByEmail(dto.email);
-        if (!user) {
+        if (!user || !user.isActive) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
         const isPasswordValid = await bcrypt.compare(dto.password, user.password);
@@ -75,12 +75,15 @@ let AuthService = class AuthService {
         return this.generateTokens(user);
     }
     async generateTokens(user) {
-        const payload = { sub: user.id, email: user.email };
+        if (!user.isActive) {
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        const payload = { sub: user.id, email: user.email, authVersion: user.authVersion };
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload),
             this.jwtService.signAsync(payload, {
                 secret: this.configService.get('REFRESH_SECRET'),
-                expiresIn: this.configService.get('REFRESH_EXPIRES_IN'),
+                expiresIn: this.configService.getOrThrow('REFRESH_EXPIRES_IN'),
             }),
         ]);
         const salt = await bcrypt.genSalt();
@@ -89,7 +92,7 @@ let AuthService = class AuthService {
             data: {
                 token: hashedRefreshToken,
                 userId: user.id,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                expiresAt: new Date(Date.now() + this.configService.getOrThrow('REFRESH_EXPIRES_IN') * 1000),
             },
         });
         return {
@@ -100,6 +103,7 @@ let AuthService = class AuthService {
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
+                role: user.role,
             },
         };
     }
@@ -109,7 +113,9 @@ let AuthService = class AuthService {
                 secret: this.configService.get('REFRESH_SECRET'),
             });
             const user = await this.usersService.findById(payload.sub);
-            if (!user)
+            if (!user || !user.isActive)
+                throw new common_1.UnauthorizedException();
+            if ((payload.authVersion ?? 0) !== user.authVersion)
                 throw new common_1.UnauthorizedException();
             const dbTokens = await this.prisma.authToken.findMany({
                 where: { userId: user.id, isRevoked: false },

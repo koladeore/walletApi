@@ -1,3 +1,3 @@
 export declare class FundWalletDto {
-    amount: number;
+    amount: string;
 }

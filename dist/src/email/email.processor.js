@@ -28,6 +28,10 @@ let EmailProcessor = EmailProcessor_1 = class EmailProcessor extends bullmq_1.Wo
     async process(job) {
         this.logger.log(`Processing email job: ${job.name} (ID: ${job.id})`);
         try {
+            if (job.name.startsWith('transfer-') &&
+                (!('currency' in job.data) || job.data.currency !== 'NGN')) {
+                throw new Error('Legacy transfer email requires currency review before replay');
+            }
             switch (job.name) {
                 case 'welcome-email':
                     await this.handleWelcomeEmail(job.data);
@@ -184,7 +188,7 @@ let EmailProcessor = EmailProcessor_1 = class EmailProcessor extends bullmq_1.Wo
         </div>
         <div class="detail-row">
           <span class="detail-label">Amount</span>
-          <span class="detail-value">$${data.amount.toFixed(2)}</span>
+          <span class="detail-value">NGN ${data.amount}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Time</span>
@@ -219,7 +223,7 @@ let EmailProcessor = EmailProcessor_1 = class EmailProcessor extends bullmq_1.Wo
         </div>
         <div class="detail-row">
           <span class="detail-label">Amount</span>
-          <span class="detail-value">$${data.amount.toFixed(2)}</span>
+          <span class="detail-value">NGN ${data.amount}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">Time</span>

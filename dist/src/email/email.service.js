@@ -37,6 +37,7 @@ let EmailService = class EmailService {
         await this.emailQueue.add('transfer-receipt', {
             email,
             amount,
+            currency: 'NGN',
             receiverEmail,
         }, {
             attempts: 3,
@@ -50,6 +51,7 @@ let EmailService = class EmailService {
         await this.emailQueue.add('transfer-incoming', {
             email,
             amount,
+            currency: 'NGN',
             senderEmail,
         }, {
             attempts: 3,

@@ -25,6 +25,7 @@ let NotificationService = class NotificationService {
         await this.notificationQueue.add('transfer-received', {
             userId,
             amount,
+            currency: 'NGN',
             senderEmail,
         }, {
             attempts: 5,

@@ -11,6 +11,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const compression_1 = __importDefault(require("compression"));
 const all_exceptions_filter_1 = require("./common/filters/all-exceptions.filter");
 const swagger_1 = require("@nestjs/swagger");
+const config_1 = require("@nestjs/config");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule, { bufferLogs: true });
     app.useLogger(app.get(nestjs_pino_1.Logger));
@@ -35,7 +36,7 @@ async function bootstrap() {
         .build();
     const documentFactory = () => swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('api/docs', app, documentFactory);
-    const port = process.env.PORT ?? 3000;
+    const port = app.get(config_1.ConfigService).getOrThrow('PORT');
     await app.listen(port);
     console.log(`Application is running on: http://localhost:${port}/api/v1`);
     console.log(`Swagger UI is available at: http://localhost:${port}/api/docs`);

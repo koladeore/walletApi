@@ -47,6 +47,16 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
 const email_service_1 = require("../email/email.service");
+const money_1 = require("../common/money/money");
+const userProfileSelect = {
+    id: true,
+    email: true,
+    firstName: true,
+    lastName: true,
+    isActive: true,
+    createdAt: true,
+    updatedAt: true,
+};
 let UsersService = class UsersService {
     prisma;
     emailService;
@@ -67,21 +77,26 @@ let UsersService = class UsersService {
     async getProfile(id) {
         const user = await this.prisma.user.findUnique({
             where: { id },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                isActive: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+            select: { ...userProfileSelect, role: true },
         });
         return user;
     }
+    async getAllUsers() {
+        return this.prisma.user.findMany({
+            select: userProfileSelect,
+            orderBy: { id: 'asc' },
+        });
+    }
     async getWallet(userId) {
-        return this.prisma.wallet.findUnique({
+        const wallet = await this.prisma.wallet.findUnique({
             where: { userId },
+        });
+        return wallet ? (0, money_1.walletResponse)(wallet) : null;
+    }
+    async lookupRecipient(email) {
+        return this.prisma.user.findFirst({
+            where: { email, isActive: true, wallet: { isNot: null } },
+            select: { id: true, firstName: true, lastName: true },
         });
     }
     async create(data) {
@@ -94,15 +109,19 @@ let UsersService = class UsersService {
         const createdUser = await this.prisma.$transaction(async (tx) => {
             const user = await tx.user.create({
                 data: {
-                    ...data,
+                    email: data.email,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
                     password: hashedPassword,
+                    role: 'USER',
                 },
+                select: userProfileSelect,
             });
             await tx.wallet.create({
                 data: {
                     userId: user.id,
-                    currency: 'USD',
-                    balance: 0,
+                    currency: 'NGN',
+                    balanceMinor: 0n,
                 },
             });
             return user;
@@ -113,6 +132,91 @@ let UsersService = class UsersService {
             console.error('Failed to queue welcome email', err);
         });
         return createdUser;
+    }
+    async closeAccount(actorId, userId, reason) {
+        if (actorId === userId)
+            throw new common_1.BadRequestException('You cannot close your own admin account');
+        if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500)
+            throw new common_1.BadRequestException('A reason of 1–500 characters is required');
+        return this.prisma.$transaction(async (tx) => {
+            for (const id of [actorId, userId].sort())
+                await tx.$queryRaw `SELECT id FROM users WHERE id = ${id} FOR UPDATE`;
+            const actor = await tx.user.findUnique({ where: { id: actorId } });
+            if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
+                throw new common_1.ForbiddenException();
+            const target = await tx.user.findUnique({ where: { id: userId } });
+            if (!target)
+                throw new common_1.NotFoundException('User not found');
+            if (target.closedAt)
+                return { id: target.id, closedAt: target.closedAt, isActive: false };
+            const wallet = await tx.wallet.findUnique({ where: { userId } });
+            if (wallet) {
+                await tx.$queryRaw `SELECT id FROM wallets WHERE id = ${wallet.id} FOR UPDATE`;
+                const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+                if (current.balanceMinor !== 0n || current.reservedMinor !== 0n)
+                    throw new common_1.ConflictException('Settle the balance and pending withdrawals before closure');
+            }
+            const user = await tx.user.update({
+                where: { id: userId },
+                data: { closedAt: new Date(), isActive: false },
+                select: { id: true, closedAt: true, isActive: true },
+            });
+            await tx.auditLog.create({
+                data: {
+                    userId: actorId,
+                    action: 'ACCOUNT_CLOSED',
+                    metadata: { targetUserId: userId, reason: reason.trim() },
+                },
+            });
+            return user;
+        });
+    }
+    async updateStatus(actorId, userId, dto) {
+        if (actorId === userId && !dto.isActive) {
+            throw new common_1.BadRequestException('You cannot deactivate your own account');
+        }
+        return this.prisma.$transaction(async (tx) => {
+            const ids = [...new Set([actorId, userId])].sort();
+            for (const id of ids) {
+                await tx.$queryRaw `SELECT id FROM users WHERE id = ${id} FOR UPDATE`;
+            }
+            const actor = await tx.user.findUnique({ where: { id: actorId } });
+            if (!actor?.isActive || actor.role !== 'ADMIN')
+                throw new common_1.ForbiddenException();
+            const target = await tx.user.findUnique({ where: { id: userId } });
+            if (!target)
+                throw new common_1.NotFoundException('User not found');
+            if (target.closedAt)
+                throw new common_1.ConflictException('Closed accounts cannot change status');
+            const changed = target.isActive !== dto.isActive;
+            const user = await tx.user.update({
+                where: { id: userId },
+                data: {
+                    isActive: dto.isActive,
+                    ...(changed ? { authVersion: { increment: 1 } } : {}),
+                },
+                select: userProfileSelect,
+            });
+            if (changed || !dto.isActive) {
+                await tx.authToken.updateMany({
+                    where: { userId, isRevoked: false },
+                    data: { isRevoked: true },
+                });
+            }
+            await tx.auditLog.create({
+                data: {
+                    userId: actorId,
+                    action: 'USER_STATUS_UPDATED',
+                    metadata: {
+                        targetUserId: userId,
+                        previousIsActive: target.isActive,
+                        isActive: dto.isActive,
+                        reason: dto.reason,
+                    },
+                },
+            });
+            return user;
+        });
     }
 };
 exports.UsersService = UsersService;

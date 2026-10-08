@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransferDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class TransferDto {
@@ -28,11 +29,13 @@ __decorate([
 ], TransferDto.prototype, "receiverEmail", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 50.0,
-        description: 'The amount to transfer',
+        example: '50.00',
+        description: 'Amount in NGN as a decimal string (naira)',
     }),
-    (0, class_validator_1.IsNumber)({ maxDecimalPlaces: 2 }),
-    (0, class_validator_1.IsPositive)(),
-    __metadata("design:type", Number)
+    (0, class_transformer_1.Transform)(({ obj }) => obj.amount),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    (0, class_validator_1.Matches)(/^(0|[1-9]\d*)(\.\d{1,2})?$/),
+    __metadata("design:type", String)
 ], TransferDto.prototype, "amount", void 0);
 //# sourceMappingURL=transfer.dto.js.map

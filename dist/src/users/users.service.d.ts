@@ -1,6 +1,20 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 import { EmailService } from '../email/email.service';
+import { RegisterDto } from '../auth/dto/register.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+declare const userProfileSelect: {
+    id: true;
+    email: true;
+    firstName: true;
+    lastName: true;
+    isActive: true;
+    createdAt: true;
+    updatedAt: true;
+};
+type PublicUser = Prisma.UserGetPayload<{
+    select: typeof userProfileSelect;
+}>;
 export declare class UsersService {
     private prisma;
     private emailService;
@@ -9,20 +23,59 @@ export declare class UsersService {
     findById(id: string): Promise<User | null>;
     getProfile(id: string): Promise<{
         email: string;
-        id: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
+        id: string;
+        role: import("@prisma/client").$Enums.Role;
         createdAt: Date;
         updatedAt: Date;
     } | null>;
-    getWallet(userId: string): Promise<{
+    getAllUsers(): Promise<{
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+        isActive: boolean;
         id: string;
         createdAt: Date;
         updatedAt: Date;
+    }[]>;
+    getWallet(userId: string): Promise<({
+        id: string;
+        closedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
         userId: string;
-        balance: Prisma.Decimal;
+        balanceMinor: bigint;
+        reservedMinor: bigint;
         currency: string;
+    } & {
+        balanceMinor: string;
+        balance: string;
+        reservedMinor: string;
+        reservedBalance: string;
+        availableMinor: string;
+        availableBalance: string;
+    }) | null>;
+    lookupRecipient(email: string): Promise<{
+        firstName: string | null;
+        lastName: string | null;
+        id: string;
     } | null>;
-    create(data: Prisma.UserCreateInput): Promise<User>;
+    create(data: RegisterDto): Promise<PublicUser>;
+    closeAccount(actorId: string, userId: string, reason: string): Promise<{
+        isActive: boolean;
+        id: string;
+        closedAt: Date | null;
+    }>;
+    updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto): Promise<{
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+        isActive: boolean;
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
 }
+export {};

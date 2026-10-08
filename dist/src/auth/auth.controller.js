@@ -41,8 +41,12 @@ exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('register'),
     (0, swagger_1.ApiOperation)({ summary: 'Register a new user' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'The user has been successfully registered.' }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad Request / Email already exists.' }),
+    (0, swagger_1.ApiResponse)({
+        status: 201,
+        description: 'Public user profile returned. Passwords and password hashes are never included.',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid registration data.' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Email already exists.' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [register_dto_1.RegisterDto]),

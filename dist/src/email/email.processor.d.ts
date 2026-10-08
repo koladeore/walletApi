@@ -7,12 +7,14 @@ interface WelcomeEmailData {
 }
 interface TransferReceiptData {
     email: string;
-    amount: number;
+    amount: string;
+    currency: 'NGN';
     receiverEmail: string;
 }
 interface TransferIncomingData {
     email: string;
-    amount: number;
+    amount: string;
+    currency: 'NGN';
     senderEmail: string;
 }
 type EmailJobData = WelcomeEmailData | TransferReceiptData | TransferIncomingData;
