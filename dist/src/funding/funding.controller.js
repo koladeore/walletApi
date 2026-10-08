@@ -18,10 +18,17 @@ const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const fund_wallet_dto_1 = require("../wallet/dto/fund-wallet.dto");
 const funding_service_1 = require("./funding.service");
+const confirmation_service_1 = require("./confirmation.service");
 let FundingController = class FundingController {
     funding;
-    constructor(funding) {
+    confirmation;
+    constructor(funding, confirmation) {
         this.funding = funding;
+        this.confirmation = confirmation;
+    }
+    async verify(req, reference) {
+        await this.confirmation.confirm(reference, req.user.id);
+        return this.funding.get(req.user.id, reference);
     }
     initialize(req, dto, key) {
         return this.funding.initialize(req.user.id, dto.amount, key);
@@ -31,6 +38,18 @@ let FundingController = class FundingController {
     }
 };
 exports.FundingController = FundingController;
+__decorate([
+    (0, common_1.Post)(':reference/verify'),
+    (0, common_1.HttpCode)(200),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Verify your payment with Paystack and credit a matching successful payment once',
+    }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('reference')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], FundingController.prototype, "verify", null);
 __decorate([
     (0, common_1.Post)('initialize'),
     (0, swagger_1.ApiOperation)({ summary: 'Initialize Paystack test checkout; does not credit the wallet' }),
@@ -62,6 +81,7 @@ exports.FundingController = FundingController = __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('wallet/funding'),
-    __metadata("design:paramtypes", [funding_service_1.FundingService])
+    __metadata("design:paramtypes", [funding_service_1.FundingService,
+        confirmation_service_1.ConfirmationService])
 ], FundingController);
 //# sourceMappingURL=funding.controller.js.map

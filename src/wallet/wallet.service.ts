@@ -326,10 +326,11 @@ export class WalletService {
           original.status !== 'SUCCESS' ||
           original.reversalOfId ||
           !original.ledgerJournal ||
-          original.type === 'DEBIT'
+          original.type === 'DEBIT' ||
+          (original.metadata as Record<string, unknown> | null)?.fundingSource === 'PAYSTACK'
         )
           throw new BadRequestException(
-            'Only posted internal transfers and funding can be reversed; withdrawals require provider reconciliation',
+            'Only posted internal transfers and simulated funding can be reversed; external payments require provider reconciliation',
           );
         const ids = [original.senderWalletId, original.receiverWalletId]
           .filter((id): id is string => id !== null)

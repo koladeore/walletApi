@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaystackService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const node_crypto_1 = require("node:crypto");
+const payment_1 = require("./payment");
 let PaystackService = class PaystackService {
     config;
     constructor(config) {
@@ -22,6 +24,37 @@ let PaystackService = class PaystackService {
             throw new common_1.ServiceUnavailableException('Paystack integration is disabled');
         if (!/^sk_test_[A-Za-z0-9]+$/.test(this.config.get('PAYSTACK_SECRET_KEY') ?? ''))
             throw new common_1.ServiceUnavailableException('Paystack test credentials are not configured');
+    }
+    authenticateWebhook(raw, signature) {
+        this.assertEnabled();
+        if (!raw || typeof signature !== 'string' || !/^[a-fA-F0-9]{128}$/.test(signature))
+            return false;
+        const expected = (0, node_crypto_1.createHmac)('sha512', this.config.getOrThrow('PAYSTACK_SECRET_KEY'))
+            .update(raw)
+            .digest();
+        return (0, node_crypto_1.timingSafeEqual)(expected, Buffer.from(signature, 'hex'));
+    }
+    async verifyPayment(reference) {
+        this.assertEnabled();
+        try {
+            const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+                headers: {
+                    Authorization: `Bearer ${this.config.getOrThrow('PAYSTACK_SECRET_KEY')}`,
+                    Accept: 'application/json',
+                },
+                signal: AbortSignal.timeout(10_000),
+                redirect: 'error',
+            });
+            if (!response.ok)
+                throw new Error('Provider rejected verification');
+            const body = (0, payment_1.record)(await response.json());
+            if (body.status !== true)
+                throw new Error('Provider verification failed');
+            return (0, payment_1.parsePayment)(body.data);
+        }
+        catch {
+            throw new common_1.ServiceUnavailableException('Paystack payment verification is unavailable');
+        }
     }
     async initializePayment(input) {
         this.assertEnabled();

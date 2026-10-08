@@ -58,6 +58,9 @@ describe('Funding initialization', () => {
           providerMode: 'test',
           authorizationUrl: null,
           accessCode: null,
+          providerTransactionId: null,
+          verifiedAt: null,
+          lastCheckedAt: null,
           createdAt: new Date(),
           updatedAt: new Date(),
         };

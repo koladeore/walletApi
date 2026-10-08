@@ -1,5 +1,7 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { parsePayment, record } from './payment';
 
 @Injectable()
 export class PaystackService {
@@ -10,6 +12,39 @@ export class PaystackService {
       throw new ServiceUnavailableException('Paystack integration is disabled');
     if (!/^sk_test_[A-Za-z0-9]+$/.test(this.config.get<string>('PAYSTACK_SECRET_KEY') ?? ''))
       throw new ServiceUnavailableException('Paystack test credentials are not configured');
+  }
+
+  authenticateWebhook(raw: Buffer | undefined, signature: string | undefined): boolean {
+    this.assertEnabled();
+    if (!raw || typeof signature !== 'string' || !/^[a-fA-F0-9]{128}$/.test(signature))
+      return false;
+    const expected = createHmac('sha512', this.config.getOrThrow<string>('PAYSTACK_SECRET_KEY'))
+      .update(raw)
+      .digest();
+    return timingSafeEqual(expected, Buffer.from(signature, 'hex'));
+  }
+
+  async verifyPayment(reference: string) {
+    this.assertEnabled();
+    try {
+      const response = await fetch(
+        `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${this.config.getOrThrow<string>('PAYSTACK_SECRET_KEY')}`,
+            Accept: 'application/json',
+          },
+          signal: AbortSignal.timeout(10_000),
+          redirect: 'error',
+        },
+      );
+      if (!response.ok) throw new Error('Provider rejected verification');
+      const body = record(await response.json());
+      if (body.status !== true) throw new Error('Provider verification failed');
+      return parsePayment(body.data);
+    } catch {
+      throw new ServiceUnavailableException('Paystack payment verification is unavailable');
+    }
   }
 
   async initializePayment(input: {

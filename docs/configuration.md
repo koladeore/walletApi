@@ -24,7 +24,7 @@ Validation checks syntax and policy, not whether database/Redis credentials work
 3. Run `npm run paystack:check`. This builds the app and makes one authenticated, read-only `GET /balance` request. Success prints only `Paystack test connection verified.` No wallet balance is changed. It does not start the API or connect to the database/Redis, but requires the normal environment settings to pass validation.
 4. Restart the API after changing configuration. Compose forwards both settings to the API container.
 
-Paystack uses `https://api.paystack.co` for both environments; the key determines test or live mode. This integration deliberately accepts only test keys. No public key is needed for this server-side step. The client uses a 10-second timeout, rejects redirects, and never exposes provider error bodies or credentials. Initialization, webhooks, and wallet crediting are separate upcoming steps.
+Paystack uses `https://api.paystack.co` for both environments; the key determines test or live mode. This integration deliberately accepts only test keys. No public key is needed for this server-side step. The client uses a 10-second timeout, rejects redirects, and never exposes provider error bodies or credentials. See [Paystack funding](paystack-funding.md) for initialization, signed webhooks, verification, and atomic wallet crediting.
 
 For deployed environments, inject the key through your hosting platform's secret manager rather than a committed file or container image. Limit who can read it and rotate it in Paystack if exposed. Do not paste expanded Compose configuration or environment dumps into logs or shared messages.
 

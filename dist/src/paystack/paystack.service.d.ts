@@ -3,6 +3,8 @@ export declare class PaystackService {
     private readonly config;
     constructor(config: ConfigService);
     assertEnabled(): void;
+    authenticateWebhook(raw: Buffer | undefined, signature: string | undefined): boolean;
+    verifyPayment(reference: string): Promise<import("./payment").PaystackPayment>;
     initializePayment(input: {
         email: string;
         amountMinor: bigint;

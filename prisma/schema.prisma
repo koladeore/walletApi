@@ -234,6 +234,9 @@ model FundingRequest {
   status           FundingStatus @default(INITIALIZING)
   authorizationUrl String?
   accessCode       String?
+  providerTransactionId String? @unique
+  verifiedAt       DateTime?
+  lastCheckedAt    DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -241,4 +244,21 @@ model FundingRequest {
   @@index([status, createdAt])
   @@index([walletId, createdAt])
   @@map("funding_requests")
+}
+
+model PaystackEvent {
+  id             String @id
+  eventType      String
+  reference      String?
+  payment        Json
+  status         String @default("RECEIVED")
+  attempts       Int @default(0)
+  nextAttemptAt  DateTime @default(now())
+  lockedUntil    DateTime?
+  lastError      String?
+  createdAt      DateTime @default(now())
+  processedAt    DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@map("paystack_events")
 }

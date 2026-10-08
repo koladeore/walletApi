@@ -9,6 +9,41 @@ describe('Paystack test integration', () => {
       new ConfigService({ PAYSTACK_ENABLED: enabled, PAYSTACK_SECRET_KEY: secret }),
     );
 
+  const verifiedData = {
+    id: 123,
+    reference: 'fund-test',
+    amount: 10050,
+    currency: 'NGN',
+    domain: 'test',
+    status: 'success',
+    customer: { email: 'owner@example.com' },
+  };
+  it('verifies via authenticated API and parses payment details', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: true, data: verifiedData })));
+    await expect(service().verifyPayment('fund-test')).resolves.toMatchObject({
+      amountMinor: '10050',
+      transactionId: '123',
+      domain: 'test',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.paystack.co/transaction/verify/fund-test',
+      expect.objectContaining({
+        redirect: 'error',
+        headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+      }),
+    );
+  });
+  it.each([
+    new Response('private provider error', { status: 401 }),
+    new Response(JSON.stringify({ status: false })),
+    new Response(JSON.stringify({ status: true, data: { ...verifiedData, amount: 1.234 } })),
+  ])('sanitizes verification failures', async (response) => {
+    fetchMock.mockResolvedValue(response);
+    await expect(service().verifyPayment('fund-test')).rejects.toThrow(
+      'verification is unavailable',
+    );
+  });
+
   beforeEach(() => {
     fetchMock = jest.spyOn(globalThis, 'fetch');
   });

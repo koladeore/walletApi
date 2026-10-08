@@ -1,16 +1,40 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { FundWalletDto } from '../wallet/dto/fund-wallet.dto';
 import { FundingService } from './funding.service';
+import { ConfirmationService } from './confirmation.service';
 
 @ApiTags('wallet')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('wallet/funding')
 export class FundingController {
-  constructor(private readonly funding: FundingService) {}
+  constructor(
+    private readonly funding: FundingService,
+    private readonly confirmation: ConfirmationService,
+  ) {}
+
+  @Post(':reference/verify')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Verify your payment with Paystack and credit a matching successful payment once',
+  })
+  async verify(@Req() req: AuthenticatedRequest, @Param('reference') reference: string) {
+    await this.confirmation.confirm(reference, req.user.id);
+    return this.funding.get(req.user.id, reference);
+  }
 
   @Post('initialize')
   @ApiOperation({ summary: 'Initialize Paystack test checkout; does not credit the wallet' })

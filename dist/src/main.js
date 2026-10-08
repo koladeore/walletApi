@@ -13,7 +13,7 @@ const all_exceptions_filter_1 = require("./common/filters/all-exceptions.filter"
 const swagger_1 = require("@nestjs/swagger");
 const config_1 = require("@nestjs/config");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule, { bufferLogs: true });
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, { bufferLogs: true, rawBody: true });
     app.useLogger(app.get(nestjs_pino_1.Logger));
     app.use((0, helmet_1.default)());
     app.use((0, compression_1.default)());
