@@ -1,3 +1,4 @@
+import { LimitsModule } from '../limits/limits.module';
 import { Module } from '@nestjs/common';
 import { PaystackModule } from '../paystack/paystack.module';
 import { PayoutsController } from './payouts.controller';
@@ -6,7 +7,7 @@ import { PayoutsWorker } from './payouts.worker';
 import { SecurityModule } from '../security/security.module';
 
 @Module({
-  imports: [PaystackModule, SecurityModule],
+  imports: [LimitsModule, PaystackModule, SecurityModule],
   controllers: [PayoutsController],
   providers: [PayoutsService, PayoutsWorker],
   exports: [PayoutsService],

@@ -27,6 +27,7 @@ export declare class JwtStrategy extends JwtStrategy_base {
         phone: string | null;
         phoneVerifiedAt: Date | null;
         role: import("@prisma/client").$Enums.Role;
+        accountTier: string;
         authVersion: number;
         closedAt: Date | null;
         createdAt: Date;

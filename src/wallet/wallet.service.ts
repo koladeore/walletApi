@@ -1,3 +1,4 @@
+import { LimitsService } from '../limits/limits.service';
 import { createHash } from 'node:crypto';
 import {
   MAX_MINOR,
@@ -31,6 +32,7 @@ export class WalletService {
     private readonly emailService: EmailService,
     private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
+    private readonly limits: LimitsService,
   ) {}
 
   private validateKey(key: string) {
@@ -169,8 +171,7 @@ export class WalletService {
         ['transfer', senderId, receiverEmail, 'NGN', amountMinor.toString()],
         async (tx) => {
           // Get sender profile and wallet
-          if (expectedAuthVersion !== undefined)
-            await tx.$queryRaw`SELECT id FROM users WHERE id=${senderId} FOR SHARE`;
+          await tx.$queryRaw`SELECT id FROM users WHERE id=${senderId} FOR SHARE`;
           const sender = await tx.user.findUnique({
             where: { id: senderId },
             include: { wallet: true },
@@ -215,6 +216,8 @@ export class WalletService {
           // Lock wallets rows mapping FOR UPDATE
           await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${firstLockId} FOR UPDATE`;
           await tx.$queryRaw`SELECT id FROM wallets WHERE id = ${secondLockId} FOR UPDATE`;
+
+          await this.limits.consume(tx, senderId, amountMinor, idempotencyKey);
 
           // Check sufficient balance
           const freshSenderWallet = await tx.wallet.findUnique({ where: { id: senderWallet.id } });

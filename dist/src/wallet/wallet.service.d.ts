@@ -1,3 +1,4 @@
+import { LimitsService } from '../limits/limits.service';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -9,7 +10,8 @@ export declare class WalletService {
     private readonly emailService;
     private readonly notificationService;
     private readonly configService;
-    constructor(prisma: PrismaService, emailService: EmailService, notificationService: NotificationService, configService: ConfigService);
+    private readonly limits;
+    constructor(prisma: PrismaService, emailService: EmailService, notificationService: NotificationService, configService: ConfigService, limits: LimitsService);
     private validateKey;
     private idempotent;
     fundWallet(userId: string, amount: string, idempotencyKey: string): Promise<{
@@ -213,9 +215,9 @@ export declare class WalletService {
             } | null;
             status: import("@prisma/client").$Enums.TransactionStatus;
             amountMinor: never;
-            referenceId: string;
-            reversalOfId: string | null;
             senderWalletId: string | null;
+            reversalOfId: string | null;
+            referenceId: string;
             receiverWalletId: string | null;
             amount: string;
         };
@@ -405,9 +407,9 @@ export declare class WalletService {
         } | null;
         status: import("@prisma/client").$Enums.TransactionStatus;
         amountMinor: never;
-        referenceId: string;
-        reversalOfId: string | null;
         senderWalletId: string | null;
+        reversalOfId: string | null;
+        referenceId: string;
         receiverWalletId: string | null;
         amount: string;
     }>;
@@ -596,9 +598,9 @@ export declare class WalletService {
         } | null;
         status: import("@prisma/client").$Enums.TransactionStatus;
         amountMinor: never;
-        referenceId: string;
-        reversalOfId: string | null;
         senderWalletId: string | null;
+        reversalOfId: string | null;
+        referenceId: string;
         receiverWalletId: string | null;
         amount: string;
     }>;
@@ -638,9 +640,9 @@ export declare class WalletService {
             metadata: Prisma.JsonValue | null;
             status: import("@prisma/client").$Enums.TransactionStatus;
             amountMinor: bigint;
-            referenceId: string;
-            reversalOfId: string | null;
             senderWalletId: string | null;
+            reversalOfId: string | null;
+            referenceId: string;
             receiverWalletId: string | null;
         } & {
             amountMinor: string;

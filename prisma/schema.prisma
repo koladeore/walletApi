@@ -34,6 +34,7 @@ model User {
   lastName     String?
   isActive     Boolean      @default(true)
   role         Role         @default(USER)
+  accountTier String @default("BASIC")
   authVersion  Int          @default(0)
   closedAt     DateTime?
   
@@ -464,4 +465,26 @@ model SessionRefreshToken {
   createdAt DateTime @default(now())
   @@index([sessionId])
   @@map("session_refresh_tokens")
+}
+
+model DailyOutgoing {
+  id String @id
+  userId String
+  day String
+  amountMinor BigInt @default(0)
+  @@unique([userId, day])
+  @@map("daily_outgoing")
+}
+model ActivityFlag {
+  id String @id @default(uuid())
+  key String @unique
+  userId String
+  kind String
+  status String @default("OPEN")
+  details Json
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolution String?
+  @@index([status, createdAt])
+  @@map("activity_flags")
 }

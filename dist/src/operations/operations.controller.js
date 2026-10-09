@@ -22,6 +22,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const admin_guard_1 = require("../auth/guards/admin.guard");
 const prisma_service_1 = require("../prisma/prisma.service");
 const reconciliation_service_1 = require("./reconciliation.service");
+const staff_read_audit_interceptor_1 = require("../auth/guards/staff-read-audit.interceptor");
 const step_up_guard_1 = require("../security/step-up.guard");
 class InvestigationDto {
     reason;
@@ -66,6 +67,8 @@ let OperationsController = class OperationsController {
                     },
                 })))
                 throw new common_1.ConflictException('Resolve active disputes and investigation issues before unfreezing');
+            if (await tx.activityFlag.count({ where: { userId: wallet.userId, status: 'OPEN' } }))
+                throw new common_1.ConflictException('Resolve suspicious activity flags before unfreezing');
             if (wallet.closedAt)
                 throw new common_1.ConflictException('Closed wallets cannot be unfrozen');
             const updated = await tx.wallet.update({ where: { id }, data: { outgoingFrozen: false } });
@@ -79,8 +82,32 @@ let OperationsController = class OperationsController {
             return { walletId: updated.id, outgoingFrozen: updated.outgoingFrozen };
         });
     }
-    run() {
-        return this.reconciliation.run();
+    async run(req, dto) {
+        await this.prisma.$transaction(async (tx) => {
+            await tx.$queryRaw `SELECT id FROM users WHERE id=${req.user.id} FOR SHARE`;
+            const actor = await tx.user.findUnique({ where: { id: req.user.id } });
+            if (!actor?.isActive ||
+                actor.closedAt ||
+                actor.role !== 'ADMIN' ||
+                actor.authVersion !== req.stepUpAuthVersion)
+                throw new common_1.ForbiddenException('Active administrator and current step-up required');
+            await tx.auditLog.create({
+                data: {
+                    userId: actor.id,
+                    action: 'ADMIN_RECONCILIATION_REQUESTED',
+                    metadata: { reason: dto.reason },
+                },
+            });
+        });
+        const run = await this.reconciliation.run();
+        await this.prisma.auditLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'ADMIN_RECONCILIATION_COMPLETED',
+                metadata: { runId: run.id, status: run.status, reason: dto.reason },
+            },
+        });
+        return run;
     }
     runs() {
         return this.prisma.reconciliationRun.findMany({ orderBy: { startedAt: 'desc' }, take: 100 });
@@ -140,10 +167,13 @@ __decorate([
 ], OperationsController.prototype, "unfreeze", null);
 __decorate([
     (0, common_1.Post)('reconcile'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, swagger_1.ApiOperation)({ summary: 'Run provider and ledger reconciliation (admin)' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, InvestigationDto]),
+    __metadata("design:returntype", Promise)
 ], OperationsController.prototype, "run", null);
 __decorate([
     (0, common_1.Get)('runs'),
@@ -188,6 +218,7 @@ exports.OperationsController = OperationsController = __decorate([
     (0, swagger_1.ApiTags)('financial-operations'),
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, admin_guard_1.AdminGuard),
+    (0, common_1.UseInterceptors)(staff_read_audit_interceptor_1.StaffReadAuditInterceptor),
     (0, common_1.Controller)('admin/financial-operations'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         reconciliation_service_1.ReconciliationService])

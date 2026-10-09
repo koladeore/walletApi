@@ -81,6 +81,8 @@ export class OperationsController {
         throw new ConflictException(
           'Resolve active disputes and investigation issues before unfreezing',
         );
+      if (await tx.activityFlag.count({ where: { userId: wallet.userId, status: 'OPEN' } }))
+        throw new ConflictException('Resolve suspicious activity flags before unfreezing');
       if (wallet.closedAt) throw new ConflictException('Closed wallets cannot be unfrozen');
       const updated = await tx.wallet.update({ where: { id }, data: { outgoingFrozen: false } });
       await tx.auditLog.create({

@@ -21,6 +21,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const admin_guard_1 = require("../auth/guards/admin.guard");
 const recipient_lookup_dto_1 = require("./dto/recipient-lookup.dto");
 const update_user_status_dto_1 = require("./dto/update-user-status.dto");
+const staff_read_audit_interceptor_1 = require("../auth/guards/staff-read-audit.interceptor");
 const step_up_guard_1 = require("../security/step-up.guard");
 let UsersController = class UsersController {
     usersService;
@@ -68,6 +69,7 @@ exports.UsersController = UsersController;
 __decorate([
     (0, common_1.Get)(),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
+    (0, common_1.UseInterceptors)(staff_read_audit_interceptor_1.StaffReadAuditInterceptor),
     (0, swagger_1.ApiOperation)({ summary: 'Get all users (admin only)' }),
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Administrator access required.' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User profiles retrieved successfully.' }),
@@ -112,6 +114,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
+    (0, common_1.UseInterceptors)(staff_read_audit_interceptor_1.StaffReadAuditInterceptor),
     (0, swagger_1.ApiOperation)({ summary: 'Get user by ID (admin only)' }),
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Administrator access required.' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User profile retrieved successfully.' }),
@@ -142,6 +145,7 @@ __decorate([
     (0, common_1.Patch)(':id/status'),
     (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
+    (0, common_1.UseInterceptors)(staff_read_audit_interceptor_1.StaffReadAuditInterceptor),
     (0, swagger_1.ApiOperation)({ summary: 'Activate or deactivate a user (admin only)' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Updated public user profile.' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Invalid request or self-deactivation.' }),

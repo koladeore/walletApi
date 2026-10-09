@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayoutsService = void 0;
 exports.matchesTransfer = matchesTransfer;
+const limits_service_1 = require("../limits/limits.service");
 const node_crypto_1 = require("node:crypto");
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -28,10 +29,12 @@ let PayoutsService = class PayoutsService {
     prisma;
     paystack;
     provider;
-    constructor(prisma, paystack, provider) {
+    limits;
+    constructor(prisma, paystack, provider, limits) {
         this.prisma = prisma;
         this.paystack = paystack;
         this.provider = provider;
+        this.limits = limits;
     }
     response(payout) {
         return {
@@ -105,6 +108,7 @@ let PayoutsService = class PayoutsService {
             if (wallet.balanceMinor - wallet.reservedMinor < amountMinor)
                 throw new common_1.BadRequestException('Insufficient available balance');
             const reference = `payout-${(0, node_crypto_1.randomUUID)()}`;
+            await this.limits.consume(tx, userId, amountMinor, reference);
             const reservation = await tx.withdrawalReservation.create({
                 data: { reference, walletId: wallet.id, amountMinor, currency: 'NGN' },
             });
@@ -311,6 +315,7 @@ exports.PayoutsService = PayoutsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         paystack_service_1.PaystackService,
-        payout_provider_service_1.PayoutProviderService])
+        payout_provider_service_1.PayoutProviderService,
+        limits_service_1.LimitsService])
 ], PayoutsService);
 //# sourceMappingURL=payouts.service.js.map

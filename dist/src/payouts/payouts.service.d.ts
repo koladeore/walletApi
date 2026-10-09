@@ -1,3 +1,4 @@
+import { LimitsService } from '../limits/limits.service';
 import type { Payout } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaystackService } from '../paystack/paystack.service';
@@ -8,7 +9,8 @@ export declare class PayoutsService {
     private readonly prisma;
     private readonly paystack;
     private readonly provider;
-    constructor(prisma: PrismaService, paystack: PaystackService, provider: PayoutProviderService);
+    private readonly limits;
+    constructor(prisma: PrismaService, paystack: PaystackService, provider: PayoutProviderService, limits: LimitsService);
     response(payout: Payout): {
         id: string;
         reference: string;

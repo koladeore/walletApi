@@ -12,7 +12,7 @@ export declare class OperationsController {
         walletId: string;
         outgoingFrozen: boolean;
     }>;
-    run(): Promise<{
+    run(req: AuthenticatedRequest, dto: InvestigationDto): Promise<{
         id: string;
         summary: import("@prisma/client/runtime/client").JsonValue | null;
         status: string;
@@ -32,11 +32,11 @@ export declare class OperationsController {
         status: string;
         details: import("@prisma/client/runtime/client").JsonValue;
         key: string;
-        reference: string | null;
+        resolvedAt: Date | null;
         resolution: string | null;
+        reference: string | null;
         firstSeenAt: Date;
         lastSeenAt: Date;
-        resolvedAt: Date | null;
     }[]>;
     cases(): Promise<{
         amountMinor: string;
@@ -67,11 +67,11 @@ export declare class OperationsController {
         status: string;
         details: import("@prisma/client/runtime/client").JsonValue;
         key: string;
-        reference: string | null;
+        resolvedAt: Date | null;
         resolution: string | null;
+        reference: string | null;
         firstSeenAt: Date;
         lastSeenAt: Date;
-        resolvedAt: Date | null;
     }>;
 }
 export {};

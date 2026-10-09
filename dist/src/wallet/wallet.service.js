@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletService = void 0;
+const limits_service_1 = require("../limits/limits.service");
 const node_crypto_1 = require("node:crypto");
 const money_1 = require("../common/money/money");
 const common_1 = require("@nestjs/common");
@@ -23,11 +24,13 @@ let WalletService = class WalletService {
     emailService;
     notificationService;
     configService;
-    constructor(prisma, emailService, notificationService, configService) {
+    limits;
+    constructor(prisma, emailService, notificationService, configService, limits) {
         this.prisma = prisma;
         this.emailService = emailService;
         this.notificationService = notificationService;
         this.configService = configService;
+        this.limits = limits;
     }
     validateKey(key) {
         if (typeof key !== 'string' || !/^[A-Za-z0-9._:-]{1,200}$/.test(key))
@@ -113,8 +116,7 @@ let WalletService = class WalletService {
         const amountMinor = (0, money_1.parseNaira)(amount);
         try {
             const execution = await this.idempotent(idempotencyKey, ['transfer', senderId, receiverEmail, 'NGN', amountMinor.toString()], async (tx) => {
-                if (expectedAuthVersion !== undefined)
-                    await tx.$queryRaw `SELECT id FROM users WHERE id=${senderId} FOR SHARE`;
+                await tx.$queryRaw `SELECT id FROM users WHERE id=${senderId} FOR SHARE`;
                 const sender = await tx.user.findUnique({
                     where: { id: senderId },
                     include: { wallet: true },
@@ -144,6 +146,7 @@ let WalletService = class WalletService {
                 const secondLockId = senderWallet.id < receiverWallet.id ? receiverWallet.id : senderWallet.id;
                 await tx.$queryRaw `SELECT id FROM wallets WHERE id = ${firstLockId} FOR UPDATE`;
                 await tx.$queryRaw `SELECT id FROM wallets WHERE id = ${secondLockId} FOR UPDATE`;
+                await this.limits.consume(tx, senderId, amountMinor, idempotencyKey);
                 const freshSenderWallet = await tx.wallet.findUnique({ where: { id: senderWallet.id } });
                 if (!freshSenderWallet ||
                     freshSenderWallet.balanceMinor - freshSenderWallet.reservedMinor < amountMinor) {
@@ -403,6 +406,7 @@ exports.WalletService = WalletService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         email_service_1.EmailService,
         notification_service_1.NotificationService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        limits_service_1.LimitsService])
 ], WalletService);
 //# sourceMappingURL=wallet.service.js.map

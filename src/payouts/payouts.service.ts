@@ -1,3 +1,4 @@
+import { LimitsService } from '../limits/limits.service';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -29,6 +30,7 @@ export class PayoutsService {
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackService,
     private readonly provider: PayoutProviderService,
+    private readonly limits: LimitsService,
   ) {}
   response(payout: Payout) {
     return {
@@ -108,6 +110,7 @@ export class PayoutsService {
       if (wallet.balanceMinor - wallet.reservedMinor < amountMinor)
         throw new BadRequestException('Insufficient available balance');
       const reference = `payout-${randomUUID()}`;
+      await this.limits.consume(tx, userId, amountMinor, reference);
       // The database reservation trigger updates reservedMinor; commit before external I/O.
       const reservation = await tx.withdrawalReservation.create({
         data: { reference, walletId: wallet.id, amountMinor, currency: 'NGN' },

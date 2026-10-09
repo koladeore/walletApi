@@ -15,6 +15,8 @@ The API validates configuration at startup, before serving requests. Errors name
 | AUTH_DELIVERY_MODE | `disabled` (default), `test`, or `provider`; test is rejected in production |
 | AUTH_SECURITY_SECRET | Distinct strong secret required in production; development/test falls back to JWT_SECRET if blank |
 | AUTH_EMAIL_FROM | Bare sender email; required with RESEND_API_KEY for provider authentication delivery |
+| LIMIT_BASIC_TRANSACTION_NGN / LIMIT_BASIC_DAILY_NGN | Positive NGN decimal strings; defaults 50000 / 100000 |
+| LIMIT_VERIFIED_TRANSACTION_NGN / LIMIT_VERIFIED_DAILY_NGN | Positive NGN decimal strings; defaults 100000 / 500000; transaction must not exceed daily |
 | PAYSTACK_ENABLED | `true` or `false`; default false |
 | PAYSTACK_SECRET_KEY | Required when enabled; only `sk_test_` secret keys are accepted, even in production |
 
@@ -50,3 +52,5 @@ For a new checkout, copy `.env.example` to `.env` and supply the signing secrets
 Apply code changes with `docker compose up -d --build api`. Later environment-only changes use `docker compose up -d api`.
 
 The included PostgreSQL credentials and published database/Redis ports are for local development. They are not a production infrastructure configuration. A real deployment needs private database/Redis access and independently provisioned credentials. Changing POSTGRES_PASSWORD in Compose does not rotate the password in an already initialized PostgreSQL volume; coordinate database credential changes instead of deleting the volume.
+
+See [account limits](account-limits.md) for policy defaults, shared daily enforcement, investigation flags and admin freeze controls.

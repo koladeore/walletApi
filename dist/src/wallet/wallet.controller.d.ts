@@ -208,9 +208,9 @@ export declare class WalletController {
             } | null;
             status: import("@prisma/client").$Enums.TransactionStatus;
             amountMinor: never;
-            referenceId: string;
-            reversalOfId: string | null;
             senderWalletId: string | null;
+            reversalOfId: string | null;
+            referenceId: string;
             receiverWalletId: string | null;
             amount: string;
         };
@@ -400,9 +400,9 @@ export declare class WalletController {
         } | null;
         status: import("@prisma/client").$Enums.TransactionStatus;
         amountMinor: never;
-        referenceId: string;
-        reversalOfId: string | null;
         senderWalletId: string | null;
+        reversalOfId: string | null;
+        referenceId: string;
         receiverWalletId: string | null;
         amount: string;
     }>;
@@ -591,9 +591,9 @@ export declare class WalletController {
         } | null;
         status: import("@prisma/client").$Enums.TransactionStatus;
         amountMinor: never;
-        referenceId: string;
-        reversalOfId: string | null;
         senderWalletId: string | null;
+        reversalOfId: string | null;
+        referenceId: string;
         receiverWalletId: string | null;
         amount: string;
     }>;
@@ -607,9 +607,9 @@ export declare class WalletController {
             metadata: import("@prisma/client/runtime/client").JsonValue | null;
             status: import("@prisma/client").$Enums.TransactionStatus;
             amountMinor: bigint;
-            referenceId: string;
-            reversalOfId: string | null;
             senderWalletId: string | null;
+            reversalOfId: string | null;
+            referenceId: string;
             receiverWalletId: string | null;
         } & {
             amountMinor: string;

@@ -66,7 +66,7 @@ function describeAction(action, details) {
         catch {
             return invalid();
         }
-        if (!/^\/api\/v1\/(users\/[^/]+\/(close|status)|wallet\/transactions\/[^/]+\/reverse|admin\/financial-operations\/(issues\/[^/]+\/resolve|wallets\/[^/]+\/unfreeze))$/.test(path))
+        if (!/^\/api\/v1\/(users\/[^/]+\/(close|status)|wallet\/transactions\/[^/]+\/reverse|admin\/account-controls\/(users\/[^/]+\/(tier|freeze)|flags\/[^/]+\/resolve)|admin\/financial-operations\/(issues\/[^/]+\/resolve|wallets\/[^/]+\/unfreeze|reconcile))$/.test(path))
             invalid();
         values = [action, details.method, path, stable(details.body)];
         summary = `Staff action ${String(details.method)} ${path}`;
