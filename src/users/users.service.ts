@@ -146,9 +146,13 @@ export class UsersService {
         if (current.balanceMinor !== 0n || current.reservedMinor !== 0n)
           throw new ConflictException('Settle the balance and pending withdrawals before closure');
       }
+      await tx.authSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date(), revokeReason: 'ACCOUNT_CLOSED' },
+      });
       const user = await tx.user.update({
         where: { id: userId },
-        data: { closedAt: new Date(), isActive: false },
+        data: { closedAt: new Date(), isActive: false, authVersion: { increment: 1 } },
         select: { id: true, closedAt: true, isActive: true },
       });
       await tx.auditLog.create({
@@ -195,6 +199,10 @@ export class UsersService {
         select: userProfileSelect,
       });
       if (changed || !dto.isActive) {
+        await tx.authSession.updateMany({
+          where: { userId, revokedAt: null },
+          data: { revokedAt: new Date(), revokeReason: 'ACCOUNT_STATUS_CHANGED' },
+        });
         await tx.authToken.updateMany({
           where: { userId, isRevoked: false },
           data: { isRevoked: true },

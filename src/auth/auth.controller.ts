@@ -1,8 +1,22 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -26,13 +40,17 @@ export class AuthController {
   @ApiOperation({ summary: 'Log in with email and password' })
   @ApiResponse({ status: 200, description: 'User successfully logged in and tokens returned.' })
   @ApiResponse({ status: 401, description: 'Unauthorized / Invalid credentials.' })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: AuthenticatedRequest) {
+    return this.authService.login(dto, req.headers['user-agent']);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiOperation({
+    summary: 'Rotate access and refresh tokens atomically',
+    description:
+      'Use the latest refresh token once. Serialize refresh calls across tabs. Reusing an old token revokes this entire session, including tokens returned by the first refresh. Session expiry is fixed at login; refreshing does not extend it.',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -42,8 +60,8 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: 'New access token successfully generated.' })
   @ApiResponse({ status: 401, description: 'Unauthorized / Invalid refresh token.' })
-  refresh(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshTokens(refreshToken);
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshTokens(dto.refreshToken);
   }
 
   @Post('logout')
@@ -57,8 +75,46 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 200, description: 'User successfully logged out.' })
-  async logout(@Body('refreshToken') refreshToken: string) {
-    await this.authService.logout(refreshToken);
+  async logout(@Body() dto: RefreshTokenDto) {
+    await this.authService.logout(dto.refreshToken);
     return { message: 'Logged out successfully' };
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List your active login sessions',
+    description:
+      'Device information is the client-provided User-Agent, not a verified device identity. lastUsedAt records login/refresh activity. current identifies this bearer token session.',
+  })
+  sessions(@Req() req: AuthenticatedRequest) {
+    return this.authService.sessions(req.user.id, req.user.sessionId);
+  }
+
+  @Post('sessions/:id/logout')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Log out a selected session',
+    description:
+      'Use id from GET /auth/sessions, not user or wallet ID. Revokes both access and refresh tokens for that session. Other devices remain logged in.',
+  })
+  revoke(@Req() req: AuthenticatedRequest, @Param('id', new ParseUUIDPipe()) id: string) {
+    return this.authService.revokeSession(req.user.id, id);
+  }
+
+  @Post('logout-all')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Log out all devices, including this one',
+    description:
+      'Invalidates every session and existing action proofs. Clear local credentials and redirect to login.',
+  })
+  logoutAll(@Req() req: AuthenticatedRequest) {
+    return this.authService.logoutAll(req.user.id);
   }
 }

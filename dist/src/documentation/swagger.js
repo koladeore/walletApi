@@ -95,6 +95,14 @@ const issue = object({
     resolution: nullable(string('Investigation completed')),
 });
 const schemas = {
+    Session: object({
+        id: uuid(),
+        userAgent: nullable(string('Mozilla/5.0 ...')),
+        createdAt: date(),
+        lastUsedAt: date(),
+        expiresAt: date(),
+        current: bool(true),
+    }),
     PublicUser: profile,
     Wallet: wallet,
     Transaction: transaction,
@@ -102,6 +110,8 @@ const schemas = {
     Message: message,
     AuthTokens: object({
         accessToken: string('eyJ...access-token'),
+        sessionId: uuid(),
+        sessionExpiresAt: date(),
         refreshToken: string('eyJ...refresh-token'),
         user: object({ ...userFields, role: enumeration('USER', 'ADMIN') }),
     }),
@@ -217,6 +227,9 @@ function documentFrontendApi(document) {
         'post /auth/login': 'AuthTokens',
         'post /auth/refresh': 'AuthTokens',
         'post /auth/logout': 'Message',
+        'get /auth/sessions': 'Session[]',
+        'post /auth/sessions/{id}/logout': 'Message',
+        'post /auth/logout-all': 'Message',
         'get /auth/security/status': 'VerificationStatus',
         'post /auth/security/email/request': 'SecurityChallenge',
         'post /auth/security/email/confirm': 'EmailConfirmed',

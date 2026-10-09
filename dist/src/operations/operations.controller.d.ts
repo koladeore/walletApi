@@ -28,11 +28,11 @@ export declare class OperationsController {
     }[]>;
     issues(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
+        kind: string;
         status: string;
         details: import("@prisma/client/runtime/client").JsonValue;
         key: string;
         reference: string | null;
-        kind: string;
         resolution: string | null;
         firstSeenAt: Date;
         lastSeenAt: Date;
@@ -45,9 +45,9 @@ export declare class OperationsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        kind: string;
         reference: string;
         walletId: string;
-        kind: string;
         providerId: string;
         providerStatus: string;
         nextCheckAt: Date;
@@ -58,16 +58,16 @@ export declare class OperationsController {
         amountMinor: string;
         id: string;
         createdAt: Date;
-        reference: string;
         kind: string;
+        reference: string;
     }[]>;
     resolve(req: AuthenticatedRequest, id: string, dto: InvestigationDto): Promise<{
         id: string;
+        kind: string;
         status: string;
         details: import("@prisma/client/runtime/client").JsonValue;
         key: string;
         reference: string | null;
-        kind: string;
         resolution: string | null;
         firstSeenAt: Date;
         lastSeenAt: Date;

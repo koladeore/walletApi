@@ -15,9 +15,9 @@ export declare class FinancialService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        kind: string;
         reference: string;
         walletId: string;
-        kind: string;
         providerId: string;
         providerStatus: string;
         nextCheckAt: Date;

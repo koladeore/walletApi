@@ -20,9 +20,11 @@ export declare class AuthService {
         createdAt: Date;
         updatedAt: Date;
     }>;
-    login(dto: LoginDto): Promise<{
+    login(dto: LoginDto, userAgent?: string): Promise<{
         accessToken: string;
         refreshToken: string;
+        sessionId: string;
+        sessionExpiresAt: Date;
         user: {
             id: string;
             email: string;
@@ -31,9 +33,12 @@ export declare class AuthService {
             role: import("@prisma/client").$Enums.Role;
         };
     }>;
-    generateTokens(user: User): Promise<{
+    private tokens;
+    generateTokens(expected: User, userAgent?: string): Promise<{
         accessToken: string;
         refreshToken: string;
+        sessionId: string;
+        sessionExpiresAt: Date;
         user: {
             id: string;
             email: string;
@@ -42,9 +47,12 @@ export declare class AuthService {
             role: import("@prisma/client").$Enums.Role;
         };
     }>;
+    private refreshPayload;
     refreshTokens(refreshToken: string): Promise<{
         accessToken: string;
         refreshToken: string;
+        sessionId: string;
+        sessionExpiresAt: Date;
         user: {
             id: string;
             email: string;
@@ -54,4 +62,18 @@ export declare class AuthService {
         };
     }>;
     logout(refreshToken: string): Promise<void>;
+    sessions(userId: string, currentSessionId: string): Promise<{
+        current: boolean;
+        id: string;
+        createdAt: Date;
+        userAgent: string | null;
+        lastUsedAt: Date;
+        expiresAt: Date;
+    }[]>;
+    revokeSession(userId: string, sessionId: string): Promise<{
+        message: string;
+    }>;
+    logoutAll(userId: string): Promise<{
+        message: string;
+    }>;
 }

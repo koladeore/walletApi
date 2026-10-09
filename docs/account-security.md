@@ -2,7 +2,7 @@
 
 Phone numbers are not required; phone verification and SMS delivery are deferred.
 
-This step adds email verification, password recovery, and action-bound step-up checks. It does not enable authenticator-app MFA, passkeys, or require a second factor on every login. Session identifiers, atomic refresh rotation/reuse detection, device management, and logout-all-devices are the next checklist item; password reset already revokes existing sessions using `authVersion` and refresh-token revocation.
+This step adds email verification, password recovery, and action-bound step-up checks. It does not enable authenticator-app MFA, passkeys, or require a second factor on every login. Sessions now support atomic refresh rotation, reuse detection, device/session management, and logout-all-devices; see [session management](sessions.md).
 
 Apply the migration and restart:
 

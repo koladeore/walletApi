@@ -14,32 +14,45 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const passport_jwt_1 = require("passport-jwt");
 const config_1 = require("@nestjs/config");
+const prisma_service_1 = require("../../prisma/prisma.service");
+const class_validator_1 = require("class-validator");
 const users_service_1 = require("../../users/users.service");
 let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(passport_jwt_1.Strategy) {
     usersService;
-    constructor(configService, usersService) {
+    prisma;
+    constructor(configService, usersService, prisma) {
         super({
             jwtFromRequest: passport_jwt_1.ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
             secretOrKey: configService.getOrThrow('JWT_SECRET'),
         });
         this.usersService = usersService;
+        this.prisma = prisma;
     }
     async validate(payload) {
         const user = await this.usersService.findById(payload.sub);
-        if (!user || !user.isActive) {
+        if (!user || !user.isActive || user.closedAt) {
             throw new common_1.UnauthorizedException();
         }
         if ((payload.authVersion ?? 0) !== user.authVersion) {
             throw new common_1.UnauthorizedException();
         }
-        return user;
+        if (payload.kind !== 'access' || !payload.sid || !(0, class_validator_1.isUUID)(payload.sid))
+            throw new common_1.UnauthorizedException();
+        const session = await this.prisma.authSession.findUnique({ where: { id: payload.sid } });
+        if (!session ||
+            session.userId !== user.id ||
+            session.revokedAt ||
+            session.expiresAt <= new Date())
+            throw new common_1.UnauthorizedException();
+        return { ...user, sessionId: session.id };
     }
 };
 exports.JwtStrategy = JwtStrategy;
 exports.JwtStrategy = JwtStrategy = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [config_1.ConfigService,
-        users_service_1.UsersService])
+        users_service_1.UsersService,
+        prisma_service_1.PrismaService])
 ], JwtStrategy);
 //# sourceMappingURL=jwt.strategy.js.map

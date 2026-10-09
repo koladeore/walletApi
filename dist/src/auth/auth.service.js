@@ -49,6 +49,8 @@ const config_1 = require("@nestjs/config");
 const users_service_1 = require("../users/users.service");
 const prisma_service_1 = require("../prisma/prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
+const node_crypto_1 = require("node:crypto");
+const class_validator_1 = require("class-validator");
 let AuthService = class AuthService {
     usersService;
     jwtService;
@@ -60,115 +62,218 @@ let AuthService = class AuthService {
         this.configService = configService;
         this.prisma = prisma;
     }
-    async register(dto) {
+    register(dto) {
         return this.usersService.create(dto);
     }
-    async login(dto) {
+    async login(dto, userAgent) {
         const user = await this.usersService.findByEmail(dto.email);
-        if (!user || !user.isActive) {
+        if (!user?.isActive || user.closedAt || !(await bcrypt.compare(dto.password, user.password)))
             throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-        if (!isPasswordValid) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        return this.generateTokens(user);
+        return this.generateTokens(user, userAgent);
     }
-    async generateTokens(user) {
-        if (!user.isActive) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        const payload = { sub: user.id, email: user.email, authVersion: user.authVersion };
+    async tokens(user, sid, expiresAt) {
+        const jti = (0, node_crypto_1.randomUUID)();
+        const payload = { sub: user.id, sid, email: user.email, authVersion: user.authVersion };
+        const remaining = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+        if (remaining <= 0)
+            throw new common_1.UnauthorizedException('Session expired');
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync(payload),
-            this.jwtService.signAsync(payload, {
-                secret: this.configService.get('REFRESH_SECRET'),
-                expiresIn: this.configService.getOrThrow('REFRESH_EXPIRES_IN'),
+            this.jwtService.signAsync({ ...payload, kind: 'access', jti: (0, node_crypto_1.randomUUID)() }),
+            this.jwtService.signAsync({ ...payload, kind: 'refresh', jti }, {
+                secret: this.configService.getOrThrow('REFRESH_SECRET'),
+                expiresIn: remaining,
             }),
         ]);
-        const salt = await bcrypt.genSalt();
-        const hashedRefreshToken = await bcrypt.hash(refreshToken, salt);
-        await this.prisma.authToken.create({
-            data: {
-                token: hashedRefreshToken,
-                userId: user.id,
-                expiresAt: new Date(Date.now() + this.configService.getOrThrow('REFRESH_EXPIRES_IN') * 1000),
-            },
-        });
         return {
-            accessToken,
-            refreshToken,
-            user: {
-                id: user.id,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role,
+            jti,
+            hash: (0, node_crypto_1.createHash)('sha256').update(refreshToken).digest('hex'),
+            response: {
+                accessToken,
+                refreshToken,
+                sessionId: sid,
+                sessionExpiresAt: expiresAt,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    role: user.role,
+                },
             },
         };
     }
-    async refreshTokens(refreshToken) {
+    async generateTokens(expected, userAgent) {
+        return this.prisma.$transaction(async (tx) => {
+            await tx.$queryRaw `SELECT id FROM users WHERE id=${expected.id} FOR UPDATE`;
+            const user = await tx.user.findUnique({ where: { id: expected.id } });
+            if (!user?.isActive ||
+                user.closedAt ||
+                user.authVersion !== expected.authVersion ||
+                user.password !== expected.password)
+                throw new common_1.UnauthorizedException('Authentication changed; log in again');
+            const sid = (0, node_crypto_1.randomUUID)();
+            const expiresAt = new Date(Date.now() + this.configService.getOrThrow('REFRESH_EXPIRES_IN') * 1000);
+            const issued = await this.tokens(user, sid, expiresAt);
+            await tx.authSession.create({
+                data: { id: sid, userId: user.id, userAgent: userAgent?.slice(0, 512) || null, expiresAt },
+            });
+            await tx.sessionRefreshToken.create({
+                data: { id: issued.jti, sessionId: sid, tokenHash: issued.hash, expiresAt },
+            });
+            await tx.auditLog.create({
+                data: { userId: user.id, action: 'SESSION_CREATED', metadata: { sessionId: sid } },
+            });
+            return issued.response;
+        });
+    }
+    async refreshPayload(token) {
         try {
-            const payload = await this.jwtService.verifyAsync(refreshToken, {
-                secret: this.configService.get('REFRESH_SECRET'),
+            if (typeof token !== 'string' || token.length > 4096)
+                throw new Error();
+            const payload = await this.jwtService.verifyAsync(token, {
+                secret: this.configService.getOrThrow('REFRESH_SECRET'),
             });
-            const user = await this.usersService.findById(payload.sub);
-            if (!user || !user.isActive)
-                throw new common_1.UnauthorizedException();
-            if ((payload.authVersion ?? 0) !== user.authVersion)
-                throw new common_1.UnauthorizedException();
-            const dbTokens = await this.prisma.authToken.findMany({
-                where: { userId: user.id, isRevoked: false },
-            });
-            let validTokenFound = false;
-            let tokenIdToRevoke = '';
-            for (const t of dbTokens) {
-                const isMatch = await bcrypt.compare(refreshToken, t.token);
-                if (isMatch) {
-                    validTokenFound = true;
-                    tokenIdToRevoke = t.id;
-                    break;
-                }
-            }
-            if (!validTokenFound)
-                throw new common_1.UnauthorizedException('Invalid refresh token');
-            await this.prisma.authToken.update({
-                where: { id: tokenIdToRevoke },
-                data: { isRevoked: true },
-            });
-            return this.generateTokens(user);
+            if (payload.kind !== 'refresh' ||
+                !(0, class_validator_1.isUUID)(payload.sub) ||
+                !(0, class_validator_1.isUUID)(payload.sid) ||
+                !(0, class_validator_1.isUUID)(payload.jti) ||
+                !Number.isInteger(payload.authVersion))
+                throw new Error();
+            return payload;
         }
         catch {
             throw new common_1.UnauthorizedException('Invalid refresh token');
         }
     }
-    async logout(refreshToken) {
-        try {
-            const payload = await this.jwtService.verifyAsync(refreshToken, {
-                secret: this.configService.get('REFRESH_SECRET'),
-            });
-            const user = await this.usersService.findById(payload.sub);
-            if (!user ||
-                !user.isActive ||
+    async refreshTokens(refreshToken) {
+        const payload = await this.refreshPayload(refreshToken);
+        const hash = (0, node_crypto_1.createHash)('sha256').update(refreshToken).digest('hex');
+        const result = await this.prisma.$transaction(async (tx) => {
+            await tx.$queryRaw `SELECT id FROM users WHERE id=${payload.sub} FOR UPDATE`;
+            const user = await tx.user.findUnique({ where: { id: payload.sub } });
+            const session = await tx.authSession.findUnique({ where: { id: payload.sid } });
+            const token = await tx.sessionRefreshToken.findUnique({ where: { id: payload.jti } });
+            if (!user?.isActive ||
                 user.closedAt ||
-                (payload.authVersion ?? 0) !== user.authVersion)
-                return;
-            const dbTokens = await this.prisma.authToken.findMany({
-                where: { userId: payload.sub, isRevoked: false },
-            });
-            for (const t of dbTokens) {
-                const isMatch = await bcrypt.compare(refreshToken, t.token);
-                if (isMatch) {
-                    await this.prisma.authToken.update({
-                        where: { id: t.id },
-                        data: { isRevoked: true },
-                    });
-                    break;
-                }
+                user.authVersion !== payload.authVersion ||
+                !session ||
+                session.userId !== user.id ||
+                session.revokedAt ||
+                session.expiresAt <= new Date() ||
+                !token ||
+                token.sessionId !== session.id ||
+                token.tokenHash !== hash ||
+                token.expiresAt <= new Date())
+                return null;
+            if (token.consumedAt) {
+                await tx.authSession.update({
+                    where: { id: session.id },
+                    data: { revokedAt: new Date(), revokeReason: 'REFRESH_REUSE' },
+                });
+                await tx.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: 'REFRESH_TOKEN_REUSE',
+                        metadata: { sessionId: session.id },
+                    },
+                });
+                return null;
             }
+            const issued = await this.tokens(user, session.id, session.expiresAt);
+            await tx.sessionRefreshToken.update({
+                where: { id: token.id },
+                data: { consumedAt: new Date() },
+            });
+            await tx.sessionRefreshToken.create({
+                data: {
+                    id: issued.jti,
+                    sessionId: session.id,
+                    tokenHash: issued.hash,
+                    expiresAt: session.expiresAt,
+                },
+            });
+            await tx.authSession.update({ where: { id: session.id }, data: { lastUsedAt: new Date() } });
+            return issued.response;
+        });
+        if (!result)
+            throw new common_1.UnauthorizedException('Invalid refresh token; log in again');
+        return result;
+    }
+    async logout(refreshToken) {
+        let payload;
+        try {
+            payload = await this.refreshPayload(refreshToken);
         }
         catch {
+            return;
         }
+        const hash = (0, node_crypto_1.createHash)('sha256').update(refreshToken).digest('hex');
+        await this.prisma.$transaction(async (tx) => {
+            await tx.$queryRaw `SELECT id FROM users WHERE id=${payload.sub} FOR UPDATE`;
+            const user = await tx.user.findUnique({ where: { id: payload.sub } });
+            const token = await tx.sessionRefreshToken.findUnique({ where: { id: payload.jti } });
+            if (!user ||
+                user.authVersion !== payload.authVersion ||
+                !token ||
+                token.sessionId !== payload.sid ||
+                token.tokenHash !== hash)
+                return;
+            const changed = await tx.authSession.updateMany({
+                where: { id: payload.sid, userId: user.id, revokedAt: null },
+                data: { revokedAt: new Date(), revokeReason: 'LOGOUT' },
+            });
+            if (changed.count)
+                await tx.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: 'SESSION_REVOKED',
+                        metadata: { sessionId: payload.sid, reason: 'LOGOUT' },
+                    },
+                });
+        });
+    }
+    async sessions(userId, currentSessionId) {
+        const rows = await this.prisma.authSession.findMany({
+            where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, userAgent: true, createdAt: true, lastUsedAt: true, expiresAt: true },
+        });
+        return rows.map((row) => ({ ...row, current: row.id === currentSessionId }));
+    }
+    async revokeSession(userId, sessionId) {
+        return this.prisma.$transaction(async (tx) => {
+            await tx.$queryRaw `SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
+            const session = await tx.authSession.findUnique({ where: { id: sessionId } });
+            if (!session || session.userId !== userId)
+                throw new common_1.NotFoundException('Session not found');
+            if (!session.revokedAt) {
+                await tx.authSession.update({
+                    where: { id: sessionId },
+                    data: { revokedAt: new Date(), revokeReason: 'USER_REVOKED' },
+                });
+                await tx.auditLog.create({
+                    data: {
+                        userId,
+                        action: 'SESSION_REVOKED',
+                        metadata: { sessionId, reason: 'USER_REVOKED' },
+                    },
+                });
+            }
+            return { message: 'Session logged out' };
+        });
+    }
+    async logoutAll(userId) {
+        return this.prisma.$transaction(async (tx) => {
+            await tx.$queryRaw `SELECT id FROM users WHERE id=${userId} FOR UPDATE`;
+            await tx.authSession.updateMany({
+                where: { userId, revokedAt: null },
+                data: { revokedAt: new Date(), revokeReason: 'LOGOUT_ALL' },
+            });
+            await tx.authToken.updateMany({ where: { userId }, data: { isRevoked: true } });
+            await tx.user.update({ where: { id: userId }, data: { authVersion: { increment: 1 } } });
+            await tx.auditLog.create({ data: { userId, action: 'ALL_SESSIONS_REVOKED' } });
+            return { message: 'All devices logged out. Log in again.' };
+        });
     }
 };
 exports.AuthService = AuthService;

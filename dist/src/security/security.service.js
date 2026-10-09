@@ -241,6 +241,10 @@ let SecurityService = class SecurityService {
                 data: { password: hash, authVersion: { increment: 1 } },
             });
             await tx.authToken.updateMany({ where: { userId: user.id }, data: { isRevoked: true } });
+            await tx.authSession.updateMany({
+                where: { userId: user.id, revokedAt: null },
+                data: { revokedAt: new Date(), revokeReason: 'PASSWORD_RESET' },
+            });
             await tx.securityChallenge.updateMany({
                 where: { userId: user.id, consumedAt: null },
                 data: { consumedAt: new Date() },
