@@ -21,7 +21,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:ledger": "node -r ts-node/register test/ledger/integration.cjs",
-    "test:funding": "node -r ts-node/register test/funding/integration.cjs"
+    "test:funding": "node -r ts-node/register test/funding/integration.cjs",
+    "test:beneficiaries": "node -r ts-node/register test/beneficiaries/integration.cjs"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

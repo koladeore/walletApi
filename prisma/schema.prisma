@@ -38,6 +38,7 @@ model User {
   authTokens   AuthToken[]
   auditLogs    AuditLog[]
   fundingRequests FundingRequest[]
+  beneficiaries Beneficiary[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -261,4 +262,23 @@ model PaystackEvent {
 
   @@index([status, nextAttemptAt])
   @@map("paystack_events")
+}
+
+model Beneficiary {
+  id            String @id @default(uuid())
+  userId        String
+  user          User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  bankCode      String
+  accountNumber String
+  accountName   String
+  currency      String @default("NGN")
+  provider      String @default("PAYSTACK")
+  providerMode  String @default("test")
+  verifiedAt    DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, bankCode, accountNumber])
+  @@index([userId, createdAt])
+  @@map("beneficiaries")
 }

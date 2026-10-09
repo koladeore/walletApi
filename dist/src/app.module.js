@@ -24,6 +24,7 @@ const email_module_1 = require("./email/email.module");
 const notification_module_1 = require("./notification/notification.module");
 const paystack_module_1 = require("./paystack/paystack.module");
 const funding_module_1 = require("./funding/funding.module");
+const beneficiaries_module_1 = require("./beneficiaries/beneficiaries.module");
 function prettyLogTarget() {
     if (process.env.NODE_ENV === 'production')
         return undefined;
@@ -66,6 +67,7 @@ exports.AppModule = AppModule = __decorate([
             wallet_module_1.WalletModule,
             paystack_module_1.PaystackModule,
             funding_module_1.FundingModule,
+            beneficiaries_module_1.BeneficiariesModule,
             email_module_1.EmailModule,
             notification_module_1.NotificationModule,
             bullmq_1.BullModule.forRootAsync({
