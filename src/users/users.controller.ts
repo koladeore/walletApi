@@ -1,6 +1,7 @@
 import { FinancialReasonDto } from '../common/dto/financial-reason.dto';
 import {
   Controller,
+  UseInterceptors,
   Get,
   UseGuards,
   Req,
@@ -19,6 +20,7 @@ import type { AuthenticatedRequest } from '../common/types/authenticated-request
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { RecipientLookupDto } from './dto/recipient-lookup.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { StaffReadAuditInterceptor } from '../auth/guards/staff-read-audit.interceptor';
 import { SensitiveAction } from '../security/step-up.guard';
 
 @ApiTags('users')
@@ -30,6 +32,7 @@ export class UsersController {
 
   @Get()
   @UseGuards(AdminGuard)
+  @UseInterceptors(StaffReadAuditInterceptor)
   @ApiOperation({ summary: 'Get all users (admin only)' })
   @ApiResponse({ status: 403, description: 'Administrator access required.' })
   @ApiResponse({ status: 200, description: 'User profiles retrieved successfully.' })
@@ -77,6 +80,7 @@ export class UsersController {
 
   @Get(':id')
   @UseGuards(AdminGuard)
+  @UseInterceptors(StaffReadAuditInterceptor)
   @ApiOperation({ summary: 'Get user by ID (admin only)' })
   @ApiResponse({ status: 403, description: 'Administrator access required.' })
   @ApiResponse({ status: 200, description: 'User profile retrieved successfully.' })
@@ -109,6 +113,7 @@ export class UsersController {
   @Patch(':id/status')
   @SensitiveAction('ADMIN')
   @UseGuards(AdminGuard)
+  @UseInterceptors(StaffReadAuditInterceptor)
   @ApiOperation({ summary: 'Activate or deactivate a user (admin only)' })
   @ApiResponse({ status: 200, description: 'Updated public user profile.' })
   @ApiResponse({ status: 400, description: 'Invalid request or self-deactivation.' })

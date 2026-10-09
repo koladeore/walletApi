@@ -90,6 +90,8 @@ For example, a staff status change uses:
 }
 ```
 
+Manual reconciliation also requires an ADMIN proof bound to its exact POST path and reason body. See [administrator controls](admin-controls.md).
+
 ADMIN proofs require a current administrator role as well as verified email. Read-only routes, provider webhooks, and automatic financial reconciliation do not require a customer action proof. A payout verification route cannot send a new payout, so it remains accessible with normal authentication.
 
 Proofs are consumed before the handler runs. If DTO validation, a provider request, or a money operation fails afterward, request a fresh proof before retrying. Use the same financial idempotency key to avoid a second transaction. The authorization version is rechecked inside money/staff-action transactions, so a password reset between step-up and mutation prevents stale authorization from being used.

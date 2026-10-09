@@ -64,7 +64,7 @@ export function describeAction(action: SecurityAction, details: Record<string, u
       return invalid();
     }
     if (
-      !/^\/api\/v1\/(users\/[^/]+\/(close|status)|wallet\/transactions\/[^/]+\/reverse|admin\/financial-operations\/(issues\/[^/]+\/resolve|wallets\/[^/]+\/unfreeze))$/.test(
+      !/^\/api\/v1\/(users\/[^/]+\/(close|status)|wallet\/transactions\/[^/]+\/reverse|admin\/financial-operations\/(issues\/[^/]+\/resolve|wallets\/[^/]+\/unfreeze|reconcile))$/.test(
         path,
       )
     )

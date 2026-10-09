@@ -69,3 +69,5 @@ npm run test:operations
 The database tests use mocked Paystack responses, including forced discrepancy detection. They do not validate live merchant permissions or every possible provider dispute lifecycle. Review investigation policies, asset opening balances, fee adjustments, and production infrastructure before enabling live money.
 
 References: [Paystack refunds](https://paystack.com/docs/api/refund/), [disputes](https://paystack.com/docs/api/dispute/), and [webhook events](https://paystack.com/docs/payments/webhooks/).
+
+Manual reconciliation now requires an ADMIN step-up proof and an investigation reason. See [administrator controls](admin-controls.md) for the request example.

@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsString, MaxLength, MinLength } from 'class-validator';
@@ -18,6 +19,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReconciliationService } from './reconciliation.service';
+import { StaffReadAuditInterceptor } from '../auth/guards/staff-read-audit.interceptor';
 import { SensitiveAction } from '../security/step-up.guard';
 
 class InvestigationDto {
@@ -33,6 +35,7 @@ class InvestigationDto {
 @ApiTags('financial-operations')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, AdminGuard)
+@UseInterceptors(StaffReadAuditInterceptor)
 @Controller('admin/financial-operations')
 export class OperationsController {
   constructor(
@@ -91,9 +94,36 @@ export class OperationsController {
     });
   }
   @Post('reconcile')
+  @SensitiveAction('ADMIN')
   @ApiOperation({ summary: 'Run provider and ledger reconciliation (admin)' })
-  run() {
-    return this.reconciliation.run();
+  async run(@Req() req: AuthenticatedRequest, @Body() dto: InvestigationDto) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id=${req.user.id} FOR SHARE`;
+      const actor = await tx.user.findUnique({ where: { id: req.user.id } });
+      if (
+        !actor?.isActive ||
+        actor.closedAt ||
+        actor.role !== 'ADMIN' ||
+        actor.authVersion !== req.stepUpAuthVersion
+      )
+        throw new ForbiddenException('Active administrator and current step-up required');
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          action: 'ADMIN_RECONCILIATION_REQUESTED',
+          metadata: { reason: dto.reason },
+        },
+      });
+    });
+    const run = await this.reconciliation.run();
+    await this.prisma.auditLog.create({
+      data: {
+        userId: req.user.id,
+        action: 'ADMIN_RECONCILIATION_COMPLETED',
+        metadata: { runId: run.id, status: run.status, reason: dto.reason },
+      },
+    });
+    return run;
   }
   @Get('runs')
   @ApiOperation({ summary: 'Read latest 100 reconciliation runs' })
