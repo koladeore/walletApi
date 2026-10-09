@@ -18,13 +18,14 @@ const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const payout_dto_1 = require("./payout.dto");
 const payouts_service_1 = require("./payouts.service");
+const step_up_guard_1 = require("../security/step-up.guard");
 let PayoutsController = class PayoutsController {
     payouts;
     constructor(payouts) {
         this.payouts = payouts;
     }
     create(req, dto, key) {
-        return this.payouts.create(req.user.id, dto.beneficiaryId, dto.amount, key);
+        return this.payouts.create(req.user.id, dto.beneficiaryId, dto.amount, key, req.stepUpAuthVersion);
     }
     list(req) {
         return this.payouts.list(req.user.id);
@@ -39,6 +40,7 @@ let PayoutsController = class PayoutsController {
 exports.PayoutsController = PayoutsController;
 __decorate([
     (0, common_1.Post)(),
+    (0, step_up_guard_1.SensitiveAction)('PAYOUT'),
     (0, swagger_1.ApiHeader)({ name: 'x-idempotency-key', required: true }),
     (0, swagger_1.ApiOperation)({ summary: 'Reserve funds and request a Paystack test payout' }),
     __param(0, (0, common_1.Req)()),

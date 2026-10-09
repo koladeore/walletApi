@@ -26,6 +26,9 @@ enum TransactionStatus {
 model User {
   id           String       @id @default(uuid())
   email        String       @unique
+  emailVerifiedAt DateTime?
+  phone        String? @unique
+  phoneVerifiedAt DateTime?
   password     String
   firstName    String?
   lastName     String?
@@ -388,4 +391,49 @@ model ReconciliationLease {
   id String @id
   lockedUntil DateTime
   @@map("reconciliation_leases")
+}
+
+model SecurityChallenge {
+  id String @id @default(uuid())
+  userId String
+  purpose String
+  target String
+  codeHash String
+  authVersion Int
+  binding String?
+  action String?
+  attempts Int @default(0)
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, purpose, createdAt])
+  @@map("security_challenges")
+}
+
+model StepUpProof {
+  id String @id @default(uuid())
+  userId String
+  tokenHash String @unique
+  action String
+  binding String
+  authVersion Int
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  @@map("step_up_proofs")
+}
+
+model SecurityDelivery {
+  id String @id
+  channel String
+  recipient String
+  payload String?
+  status String @default("PENDING")
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  lockedUntil DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([status, nextAttemptAt])
+  @@map("security_deliveries")
 }

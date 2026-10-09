@@ -1,3 +1,4 @@
+import { StepUpGuard } from '../security/step-up.guard';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PassportModule } from '@nestjs/passport';
@@ -38,7 +39,10 @@ describe('User route access', () => {
         { provide: UsersService, useValue: users },
         { provide: ConfigService, useValue: { getOrThrow: () => 'test-only-role-secret' } },
       ],
-    }).compile();
+    })
+      .overrideGuard(StepUpGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     app = module.createNestApplication<INestApplication<App>>();
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
@@ -171,6 +175,7 @@ describe('User route access', () => {
       id,
       'Correction',
       'reverse-test',
+      undefined,
     );
   });
   it('allows an admin to close with a trimmed reason', async () => {
@@ -180,7 +185,7 @@ describe('User route access', () => {
       .auth(token('admin'), { type: 'bearer' })
       .send({ reason: ' Settled ' })
       .expect(200);
-    expect(users.closeAccount).toHaveBeenCalledWith(profile.id, id, 'Settled');
+    expect(users.closeAccount).toHaveBeenCalledWith(profile.id, id, 'Settled', undefined);
   });
   it('blocks unauthenticated status changes', async () => {
     await request(app.getHttpServer())
@@ -203,10 +208,15 @@ describe('User route access', () => {
       .auth(token('admin'), { type: 'bearer' })
       .send({ isActive: false, reason: ' Review ' })
       .expect(200);
-    expect(users.updateStatus).toHaveBeenCalledWith(profile.id, id, {
-      isActive: false,
-      reason: 'Review',
-    });
+    expect(users.updateStatus).toHaveBeenCalledWith(
+      profile.id,
+      id,
+      {
+        isActive: false,
+        reason: 'Review',
+      },
+      undefined,
+    );
   });
   it.each([
     { isActive: 'false', reason: 'Review' },

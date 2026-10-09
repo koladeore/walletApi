@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "paystack:check": "npm run build && node scripts/paystack-check.cjs",
+    "auth:test-inbox": "npm run build && node scripts/auth-test-inbox.cjs",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -24,7 +25,8 @@
     "test:funding": "node -r ts-node/register test/funding/integration.cjs",
     "test:beneficiaries": "node -r ts-node/register test/beneficiaries/integration.cjs",
     "test:payouts": "node -r ts-node/register test/payouts/integration.cjs",
-    "test:operations": "node -r ts-node/register test/operations/integration.cjs"
+    "test:operations": "node -r ts-node/register test/operations/integration.cjs",
+    "test:security": "node -r ts-node/register test/security/integration.cjs"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

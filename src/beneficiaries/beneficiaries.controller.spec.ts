@@ -1,3 +1,4 @@
+import { StepUpGuard } from '../security/step-up.guard';
 import { Test } from '@nestjs/testing';
 import { UnauthorizedException, ValidationPipe } from '@nestjs/common';
 import type { INestApplication, ExecutionContext } from '@nestjs/common';
@@ -21,6 +22,8 @@ describe('Beneficiary HTTP validation and authorization', () => {
       controllers: [BeneficiariesController],
       providers: [{ provide: BeneficiariesService, useValue: service }],
     })
+      .overrideGuard(StepUpGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(JwtAuthGuard)
       .useValue({
         canActivate: (ctx: ExecutionContext) => {
@@ -60,10 +63,14 @@ describe('Beneficiary HTTP validation and authorization', () => {
       .auth('test-user', { type: 'bearer' })
       .send({ bankCode: '058', accountNumber: '0001234567' })
       .expect(201);
-    expect(service.create).toHaveBeenCalledWith('user1', {
-      bankCode: '058',
-      accountNumber: '0001234567',
-    });
+    expect(service.create).toHaveBeenCalledWith(
+      'user1',
+      {
+        bankCode: '058',
+        accountNumber: '0001234567',
+      },
+      undefined,
+    );
   });
   it.each([
     { bankCode: '058', accountNumber: 1234567890 },

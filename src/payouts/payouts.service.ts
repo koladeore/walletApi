@@ -65,7 +65,13 @@ export class PayoutsService {
     ).map((row) => this.response(row));
   }
 
-  async create(userId: string, beneficiaryId: string, amount: string, key: string) {
+  async create(
+    userId: string,
+    beneficiaryId: string,
+    amount: string,
+    key: string,
+    expectedAuthVersion?: number,
+  ) {
     if (typeof key !== 'string' || !/^[A-Za-z0-9._:-]{1,200}$/.test(key))
       throw new BadRequestException('Valid x-idempotency-key required');
     const amountMinor = parseNaira(amount);
@@ -86,6 +92,8 @@ export class PayoutsService {
       const user = await tx.user.findUnique({ where: { id: userId }, include: { wallet: true } });
       if (!user || !user.isActive || user.closedAt)
         throw new ForbiddenException('Active user required');
+      if (expectedAuthVersion !== undefined && user.authVersion !== expectedAuthVersion)
+        throw new ForbiddenException('Authentication changed; repeat step-up');
       if (!user.wallet) throw new NotFoundException('Wallet not found');
       const beneficiary = await tx.beneficiary.findFirst({ where: { id: beneficiaryId, userId } });
       if (!beneficiary) throw new NotFoundException('Beneficiary not found');

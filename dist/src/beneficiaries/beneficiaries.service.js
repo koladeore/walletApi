@@ -57,7 +57,7 @@ let BeneficiariesService = class BeneficiariesService {
             providerMode: 'test',
         };
     }
-    async create(userId, input) {
+    async create(userId, input, expectedAuthVersion) {
         this.validate(input);
         await this.activeUser(userId);
         const resolved = await this.paystack.resolveBankAccount(input.accountNumber, input.bankCode);
@@ -66,6 +66,8 @@ let BeneficiariesService = class BeneficiariesService {
             const user = await tx.user.findUnique({ where: { id: userId } });
             if (!user || !user.isActive || user.closedAt)
                 throw new common_1.ForbiddenException('Active user required');
+            if (expectedAuthVersion !== undefined && user.authVersion !== expectedAuthVersion)
+                throw new common_1.ForbiddenException('Authentication changed; repeat step-up');
             await tx.$queryRaw `SELECT pg_advisory_xact_lock(hashtextextended(${`beneficiary:${userId}:${input.bankCode}:${input.accountNumber}`}, 0))::text`;
             return tx.beneficiary.upsert({
                 where: {

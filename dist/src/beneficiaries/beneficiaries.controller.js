@@ -19,6 +19,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const beneficiaries_service_1 = require("./beneficiaries.service");
 const bank_account_dto_1 = require("./dto/bank-account.dto");
 const bank_list_query_dto_1 = require("./dto/bank-list-query.dto");
+const step_up_guard_1 = require("../security/step-up.guard");
 let BeneficiariesController = class BeneficiariesController {
     beneficiaries;
     constructor(beneficiaries) {
@@ -31,7 +32,7 @@ let BeneficiariesController = class BeneficiariesController {
         return this.beneficiaries.resolve(req.user.id, dto);
     }
     create(req, dto) {
-        return this.beneficiaries.create(req.user.id, dto);
+        return this.beneficiaries.create(req.user.id, dto, req.stepUpAuthVersion);
     }
     list(req) {
         return this.beneficiaries.list(req.user.id);
@@ -62,6 +63,7 @@ __decorate([
 ], BeneficiariesController.prototype, "resolve", null);
 __decorate([
     (0, common_1.Post)(),
+    (0, step_up_guard_1.SensitiveAction)('BENEFICIARY'),
     (0, swagger_1.ApiOperation)({ summary: 'Verify and save a beneficiary; duplicate bank details reuse its ID' }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),

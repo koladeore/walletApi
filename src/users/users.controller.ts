@@ -19,6 +19,7 @@ import type { AuthenticatedRequest } from '../common/types/authenticated-request
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { RecipientLookupDto } from './dto/recipient-lookup.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { SensitiveAction } from '../security/step-up.guard';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -91,6 +92,7 @@ export class UsersController {
   }
 
   @Post(':id/close')
+  @SensitiveAction('ADMIN')
   @UseGuards(AdminGuard)
   @HttpCode(200)
   @ApiOperation({
@@ -101,10 +103,11 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: FinancialReasonDto,
   ) {
-    return this.usersService.closeAccount(req.user.id, id, dto.reason);
+    return this.usersService.closeAccount(req.user.id, id, dto.reason, req.stepUpAuthVersion);
   }
 
   @Patch(':id/status')
+  @SensitiveAction('ADMIN')
   @UseGuards(AdminGuard)
   @ApiOperation({ summary: 'Activate or deactivate a user (admin only)' })
   @ApiResponse({ status: 200, description: 'Updated public user profile.' })
@@ -117,6 +120,6 @@ export class UsersController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateUserStatusDto,
   ) {
-    return this.usersService.updateStatus(req.user.id, id, dto);
+    return this.usersService.updateStatus(req.user.id, id, dto, req.stepUpAuthVersion);
   }
 }

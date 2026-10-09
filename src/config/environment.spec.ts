@@ -6,6 +6,7 @@ const valid = () => ({
   REDIS_HOST: 'redis',
   JWT_SECRET: 'access-4e7c68db9f03a251bc6d907ec23a419f',
   REFRESH_SECRET: 'refresh-d3285b9ec7f04a69817bdcf42506ea93',
+  AUTH_SECURITY_SECRET: 'security-fd2910bac68495e324916827ac308b52',
 });
 
 describe('Startup configuration', () => {
@@ -36,6 +37,8 @@ describe('Startup configuration', () => {
       ENABLE_SIMULATED_FUNDING: 'false',
       PAYSTACK_ENABLED: 'false',
       PAYSTACK_SECRET_KEY: '',
+      AUTH_DELIVERY_MODE: 'disabled',
+      AUTH_EMAIL_FROM: '',
     });
   });
   it.each(['NODE_ENV', 'DATABASE_URL', 'REDIS_HOST', 'JWT_SECRET', 'REFRESH_SECRET'])(
@@ -62,6 +65,10 @@ describe('Startup configuration', () => {
     ['REFRESH_EXPIRES_IN', '366d'],
     ['ENABLE_SIMULATED_FUNDING', 'TRUE'],
     ['ENABLE_SIMULATED_FUNDING', 'true'],
+    ['AUTH_DELIVERY_MODE', 'test'],
+    ['AUTH_DELIVERY_MODE', 'provider'],
+    ['AUTH_DELIVERY_MODE', 'invalid'],
+    ['AUTH_SECURITY_SECRET', 'short'],
     ['PAYSTACK_ENABLED', 'TRUE'],
     ['PAYSTACK_ENABLED', 'true'],
     ['PAYSTACK_SECRET_KEY', 'sk_live_private'],

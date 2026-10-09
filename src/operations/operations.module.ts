@@ -4,9 +4,10 @@ import { FinancialService } from './financial.service';
 import { ReconciliationService } from './reconciliation.service';
 import { OperationsController } from './operations.controller';
 import { OperationsWorker } from './operations.worker';
+import { SecurityModule } from '../security/security.module';
 
 @Module({
-  imports: [PaystackModule],
+  imports: [PaystackModule, SecurityModule],
   providers: [FinancialService, ReconciliationService, OperationsWorker],
   controllers: [OperationsController],
   exports: [FinancialService],

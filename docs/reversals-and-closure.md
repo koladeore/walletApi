@@ -1,5 +1,7 @@
 # Reversals and permanent account closure
 
+Sensitive write routes now require verified email and an action-bound `x-step-up-token`. Complete the [account security flow](account-security.md) before following write examples below.
+
 ## Admin reversal
 
 `POST /api/v1/wallet/transactions/:id/reverse` requires an authenticated, active ADMIN,

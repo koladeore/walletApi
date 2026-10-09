@@ -22,6 +22,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const fund_wallet_dto_1 = require("./dto/fund-wallet.dto");
 const transfer_dto_1 = require("./dto/transfer.dto");
 const transaction_history_query_dto_1 = require("./dto/transaction-history-query.dto");
+const step_up_guard_1 = require("../security/step-up.guard");
 let WalletController = class WalletController {
     walletService;
     constructor(walletService) {
@@ -37,10 +38,10 @@ let WalletController = class WalletController {
         if (!idempotencyKey) {
             throw new common_1.BadRequestException('x-idempotency-key header is required');
         }
-        return this.walletService.transferFunds(req.user.id, dto.receiverEmail, dto.amount, idempotencyKey);
+        return this.walletService.transferFunds(req.user.id, dto.receiverEmail, dto.amount, idempotencyKey, req.stepUpAuthVersion);
     }
     reverseTransaction(req, id, dto, key) {
-        return this.walletService.reverseTransaction(req.user.id, id, dto.reason, key);
+        return this.walletService.reverseTransaction(req.user.id, id, dto.reason, key, req.stepUpAuthVersion);
     }
     async getTransactions(req, query) {
         return this.walletService.getTransactionHistory(req.user.id, query);
@@ -74,6 +75,7 @@ __decorate([
 ], WalletController.prototype, "fundWallet", null);
 __decorate([
     (0, common_1.Post)('transfer'),
+    (0, step_up_guard_1.SensitiveAction)('TRANSFER'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, swagger_1.ApiOperation)({ summary: 'Transfer funds to another user' }),
     (0, swagger_1.ApiHeader)({
@@ -97,6 +99,7 @@ __decorate([
 ], WalletController.prototype, "transfer", null);
 __decorate([
     (0, common_1.Post)('transactions/:id/reverse'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     (0, common_1.HttpCode)(200),
     (0, swagger_1.ApiOperation)({ summary: 'Reverse a full internal transfer or simulated funding (admin only)' }),

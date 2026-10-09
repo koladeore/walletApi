@@ -49,7 +49,7 @@ export declare class PayoutsService {
         lastError: string | null;
         createdAt: Date;
     }[]>;
-    create(userId: string, beneficiaryId: string, amount: string, key: string): Promise<{
+    create(userId: string, beneficiaryId: string, amount: string, key: string, expectedAuthVersion?: number): Promise<{
         id: string;
         reference: string;
         beneficiaryId: string;

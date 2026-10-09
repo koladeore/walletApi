@@ -21,6 +21,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const admin_guard_1 = require("../auth/guards/admin.guard");
 const recipient_lookup_dto_1 = require("./dto/recipient-lookup.dto");
 const update_user_status_dto_1 = require("./dto/update-user-status.dto");
+const step_up_guard_1 = require("../security/step-up.guard");
 let UsersController = class UsersController {
     usersService;
     constructor(usersService) {
@@ -57,10 +58,10 @@ let UsersController = class UsersController {
         return user;
     }
     closeAccount(req, id, dto) {
-        return this.usersService.closeAccount(req.user.id, id, dto.reason);
+        return this.usersService.closeAccount(req.user.id, id, dto.reason, req.stepUpAuthVersion);
     }
     updateStatus(req, id, dto) {
-        return this.usersService.updateStatus(req.user.id, id, dto);
+        return this.usersService.updateStatus(req.user.id, id, dto, req.stepUpAuthVersion);
     }
 };
 exports.UsersController = UsersController;
@@ -124,6 +125,7 @@ __decorate([
 ], UsersController.prototype, "getUserById", null);
 __decorate([
     (0, common_1.Post)(':id/close'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     (0, common_1.HttpCode)(200),
     (0, swagger_1.ApiOperation)({
@@ -138,6 +140,7 @@ __decorate([
 ], UsersController.prototype, "closeAccount", null);
 __decorate([
     (0, common_1.Patch)(':id/status'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
     (0, swagger_1.ApiOperation)({ summary: 'Activate or deactivate a user (admin only)' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Updated public user profile.' }),

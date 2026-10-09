@@ -12,12 +12,13 @@ const paystack_module_1 = require("../paystack/paystack.module");
 const payouts_controller_1 = require("./payouts.controller");
 const payouts_service_1 = require("./payouts.service");
 const payouts_worker_1 = require("./payouts.worker");
+const security_module_1 = require("../security/security.module");
 let PayoutsModule = class PayoutsModule {
 };
 exports.PayoutsModule = PayoutsModule;
 exports.PayoutsModule = PayoutsModule = __decorate([
     (0, common_1.Module)({
-        imports: [paystack_module_1.PaystackModule],
+        imports: [paystack_module_1.PaystackModule, security_module_1.SecurityModule],
         controllers: [payouts_controller_1.PayoutsController],
         providers: [payouts_service_1.PayoutsService, payouts_worker_1.PayoutsWorker],
         exports: [payouts_service_1.PayoutsService],

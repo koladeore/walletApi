@@ -1,5 +1,7 @@
 # Financial events, fees, and reconciliation
 
+Sensitive write routes now require verified email and an action-bound `x-step-up-token`. Complete the [account security flow](account-security.md) before following write examples below.
+
 Apply the new migration and restart the API:
 
 ```bash

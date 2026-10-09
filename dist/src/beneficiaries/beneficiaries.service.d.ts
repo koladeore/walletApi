@@ -24,7 +24,7 @@ export declare class BeneficiariesService {
         bankCode: string;
         accountName: string;
     }>;
-    create(userId: string, input: BankAccountDto): Promise<{
+    create(userId: string, input: BankAccountDto, expectedAuthVersion?: number): Promise<{
         id: string;
         bankCode: string;
         accountNumberLast4: string;

@@ -18,6 +18,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReconciliationService } from './reconciliation.service';
+import { SensitiveAction } from '../security/step-up.guard';
 
 class InvestigationDto {
   @ApiProperty({ description: 'Investigation result and external evidence reference' })
@@ -39,6 +40,7 @@ export class OperationsController {
     private readonly reconciliation: ReconciliationService,
   ) {}
   @Post('wallets/:id/unfreeze')
+  @SensitiveAction('ADMIN')
   @ApiOperation({ summary: 'Unfreeze outgoing money after recorded investigation (admin)' })
   unfreeze(
     @Req() req: AuthenticatedRequest,
@@ -50,6 +52,8 @@ export class OperationsController {
       const actor = await tx.user.findUnique({ where: { id: req.user.id } });
       if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
         throw new ForbiddenException('Active administrator required');
+      if (req.stepUpAuthVersion !== undefined && actor.authVersion !== req.stepUpAuthVersion)
+        throw new ForbiddenException('Authentication changed; repeat step-up');
       await tx.$queryRaw`SELECT id FROM wallets WHERE id=${id} FOR UPDATE`;
       const wallet = await tx.wallet.findUniqueOrThrow({ where: { id } });
       const cases = await tx.financialCase.findMany({ where: { walletId: id } });
@@ -125,6 +129,7 @@ export class OperationsController {
     ).map((row) => ({ ...row, amountMinor: row.amountMinor.toString() }));
   }
   @Post('issues/:id/resolve')
+  @SensitiveAction('ADMIN')
   @ApiOperation({ summary: 'Record investigation resolution without changing balances' })
   resolve(
     @Req() req: AuthenticatedRequest,
@@ -136,6 +141,8 @@ export class OperationsController {
       const actor = await tx.user.findUnique({ where: { id: req.user.id } });
       if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
         throw new ForbiddenException('Active administrator required');
+      if (req.stepUpAuthVersion !== undefined && actor.authVersion !== req.stepUpAuthVersion)
+        throw new ForbiddenException('Authentication changed; repeat step-up');
       const issue = await tx.reconciliationIssue.update({
         where: { id },
         data: { status: 'RESOLVED', resolvedAt: new Date(), resolution: dto.reason },

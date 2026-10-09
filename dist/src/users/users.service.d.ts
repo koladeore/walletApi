@@ -64,12 +64,12 @@ export declare class UsersService {
         id: string;
     } | null>;
     create(data: RegisterDto): Promise<PublicUser>;
-    closeAccount(actorId: string, userId: string, reason: string): Promise<{
+    closeAccount(actorId: string, userId: string, reason: string, expectedAuthVersion?: number): Promise<{
         isActive: boolean;
         id: string;
         closedAt: Date | null;
     }>;
-    updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto): Promise<{
+    updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto, expectedAuthVersion?: number): Promise<{
         email: string;
         firstName: string | null;
         lastName: string | null;

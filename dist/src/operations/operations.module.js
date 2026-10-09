@@ -13,12 +13,13 @@ const financial_service_1 = require("./financial.service");
 const reconciliation_service_1 = require("./reconciliation.service");
 const operations_controller_1 = require("./operations.controller");
 const operations_worker_1 = require("./operations.worker");
+const security_module_1 = require("../security/security.module");
 let OperationsModule = class OperationsModule {
 };
 exports.OperationsModule = OperationsModule;
 exports.OperationsModule = OperationsModule = __decorate([
     (0, common_1.Module)({
-        imports: [paystack_module_1.PaystackModule],
+        imports: [paystack_module_1.PaystackModule, security_module_1.SecurityModule],
         providers: [financial_service_1.FinancialService, reconciliation_service_1.ReconciliationService, operations_worker_1.OperationsWorker],
         controllers: [operations_controller_1.OperationsController],
         exports: [financial_service_1.FinancialService],

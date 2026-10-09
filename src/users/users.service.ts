@@ -118,7 +118,12 @@ export class UsersService {
     return createdUser;
   }
 
-  async closeAccount(actorId: string, userId: string, reason: string) {
+  async closeAccount(
+    actorId: string,
+    userId: string,
+    reason: string,
+    expectedAuthVersion?: number,
+  ) {
     if (actorId === userId)
       throw new BadRequestException('You cannot close your own admin account');
     if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500)
@@ -129,6 +134,8 @@ export class UsersService {
       const actor = await tx.user.findUnique({ where: { id: actorId } });
       if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
         throw new ForbiddenException();
+      if (expectedAuthVersion !== undefined && actor.authVersion !== expectedAuthVersion)
+        throw new ForbiddenException('Authentication changed; repeat step-up');
       const target = await tx.user.findUnique({ where: { id: userId } });
       if (!target) throw new NotFoundException('User not found');
       if (target.closedAt) return { id: target.id, closedAt: target.closedAt, isActive: false };
@@ -155,7 +162,12 @@ export class UsersService {
     });
   }
 
-  async updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto) {
+  async updateStatus(
+    actorId: string,
+    userId: string,
+    dto: UpdateUserStatusDto,
+    expectedAuthVersion?: number,
+  ) {
     if (actorId === userId && !dto.isActive) {
       throw new BadRequestException('You cannot deactivate your own account');
     }
@@ -167,6 +179,8 @@ export class UsersService {
       }
       const actor = await tx.user.findUnique({ where: { id: actorId } });
       if (!actor?.isActive || actor.role !== 'ADMIN') throw new ForbiddenException();
+      if (expectedAuthVersion !== undefined && actor.authVersion !== expectedAuthVersion)
+        throw new ForbiddenException('Authentication changed; repeat step-up');
       const target = await tx.user.findUnique({ where: { id: userId } });
       if (!target) throw new NotFoundException('User not found');
       if (target.closedAt) throw new ConflictException('Closed accounts cannot change status');

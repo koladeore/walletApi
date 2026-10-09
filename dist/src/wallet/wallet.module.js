@@ -12,12 +12,13 @@ const wallet_controller_1 = require("./wallet.controller");
 const wallet_service_1 = require("./wallet.service");
 const email_module_1 = require("../email/email.module");
 const notification_module_1 = require("../notification/notification.module");
+const security_module_1 = require("../security/security.module");
 let WalletModule = class WalletModule {
 };
 exports.WalletModule = WalletModule;
 exports.WalletModule = WalletModule = __decorate([
     (0, common_1.Module)({
-        imports: [email_module_1.EmailModule, notification_module_1.NotificationModule],
+        imports: [email_module_1.EmailModule, notification_module_1.NotificationModule, security_module_1.SecurityModule],
         controllers: [wallet_controller_1.WalletController],
         providers: [wallet_service_1.WalletService],
         exports: [wallet_service_1.WalletService],

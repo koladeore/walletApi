@@ -1,5 +1,7 @@
 # Paystack test payouts
 
+Sensitive write routes now require verified email and an action-bound `x-step-up-token`. Complete the [account security flow](account-security.md) before following write examples below.
+
 Apply the migration and restart the API:
 
 ```bash

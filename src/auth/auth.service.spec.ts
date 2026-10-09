@@ -144,6 +144,12 @@ describe('Account status enforcement', () => {
     await expect(auth.refreshTokens('valid-refresh-token')).rejects.toThrow(UnauthorizedException);
     expect(jwt.signAsync).not.toHaveBeenCalled();
   });
+  it('does not let a pre-reset refresh token revoke a new session through logout', async () => {
+    users.findById.mockResolvedValue({ ...user, authVersion: 2 });
+    await auth.logout('valid-refresh-token');
+    expect(tokens.findMany).not.toHaveBeenCalled();
+    expect(tokens.update).not.toHaveBeenCalled();
+  });
   it.each(['USER', 'ADMIN'] as const)(
     'returns the database role %s on login and refresh',
     async (role) => {

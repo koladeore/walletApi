@@ -22,6 +22,7 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const admin_guard_1 = require("../auth/guards/admin.guard");
 const prisma_service_1 = require("../prisma/prisma.service");
 const reconciliation_service_1 = require("./reconciliation.service");
+const step_up_guard_1 = require("../security/step-up.guard");
 class InvestigationDto {
     reason;
 }
@@ -46,6 +47,8 @@ let OperationsController = class OperationsController {
             const actor = await tx.user.findUnique({ where: { id: req.user.id } });
             if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
                 throw new common_1.ForbiddenException('Active administrator required');
+            if (req.stepUpAuthVersion !== undefined && actor.authVersion !== req.stepUpAuthVersion)
+                throw new common_1.ForbiddenException('Authentication changed; repeat step-up');
             await tx.$queryRaw `SELECT id FROM wallets WHERE id=${id} FOR UPDATE`;
             const wallet = await tx.wallet.findUniqueOrThrow({ where: { id } });
             const cases = await tx.financialCase.findMany({ where: { walletId: id } });
@@ -106,6 +109,8 @@ let OperationsController = class OperationsController {
             const actor = await tx.user.findUnique({ where: { id: req.user.id } });
             if (!actor?.isActive || actor.closedAt || actor.role !== 'ADMIN')
                 throw new common_1.ForbiddenException('Active administrator required');
+            if (req.stepUpAuthVersion !== undefined && actor.authVersion !== req.stepUpAuthVersion)
+                throw new common_1.ForbiddenException('Authentication changed; repeat step-up');
             const issue = await tx.reconciliationIssue.update({
                 where: { id },
                 data: { status: 'RESOLVED', resolvedAt: new Date(), resolution: dto.reason },
@@ -124,6 +129,7 @@ let OperationsController = class OperationsController {
 exports.OperationsController = OperationsController;
 __decorate([
     (0, common_1.Post)('wallets/:id/unfreeze'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, swagger_1.ApiOperation)({ summary: 'Unfreeze outgoing money after recorded investigation (admin)' }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),
@@ -169,6 +175,7 @@ __decorate([
 ], OperationsController.prototype, "fees", null);
 __decorate([
     (0, common_1.Post)('issues/:id/resolve'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
     (0, swagger_1.ApiOperation)({ summary: 'Record investigation resolution without changing balances' }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Param)('id')),

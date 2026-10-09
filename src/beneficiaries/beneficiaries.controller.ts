@@ -15,6 +15,7 @@ import type { AuthenticatedRequest } from '../common/types/authenticated-request
 import { BeneficiariesService } from './beneficiaries.service';
 import { BankAccountDto } from './dto/bank-account.dto';
 import { BankListQueryDto } from './dto/bank-list-query.dto';
+import { SensitiveAction } from '../security/step-up.guard';
 
 @ApiTags('beneficiaries')
 @ApiBearerAuth()
@@ -34,9 +35,10 @@ export class BeneficiariesController {
     return this.beneficiaries.resolve(req.user.id, dto);
   }
   @Post()
+  @SensitiveAction('BENEFICIARY')
   @ApiOperation({ summary: 'Verify and save a beneficiary; duplicate bank details reuse its ID' })
   create(@Req() req: AuthenticatedRequest, @Body() dto: BankAccountDto) {
-    return this.beneficiaries.create(req.user.id, dto);
+    return this.beneficiaries.create(req.user.id, dto, req.stepUpAuthVersion);
   }
   @Get()
   @ApiOperation({ summary: 'List your beneficiaries with masked account numbers' })

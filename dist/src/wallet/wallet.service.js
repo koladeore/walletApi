@@ -109,10 +109,12 @@ let WalletService = class WalletService {
             throw error;
         }
     }
-    async transferFunds(senderId, receiverEmail, amount, idempotencyKey) {
+    async transferFunds(senderId, receiverEmail, amount, idempotencyKey, expectedAuthVersion) {
         const amountMinor = (0, money_1.parseNaira)(amount);
         try {
             const execution = await this.idempotent(idempotencyKey, ['transfer', senderId, receiverEmail, 'NGN', amountMinor.toString()], async (tx) => {
+                if (expectedAuthVersion !== undefined)
+                    await tx.$queryRaw `SELECT id FROM users WHERE id=${senderId} FOR SHARE`;
                 const sender = await tx.user.findUnique({
                     where: { id: senderId },
                     include: { wallet: true },
@@ -120,6 +122,9 @@ let WalletService = class WalletService {
                 if (!sender || !sender.wallet) {
                     throw new common_1.NotFoundException('Sender wallet not found');
                 }
+                if (expectedAuthVersion !== undefined &&
+                    (!sender.isActive || sender.closedAt || sender.authVersion !== expectedAuthVersion))
+                    throw new common_1.ForbiddenException('Authentication changed; repeat step-up');
                 const receiver = await tx.user.findUnique({
                     where: { email: receiverEmail },
                     include: { wallet: true },
@@ -212,7 +217,7 @@ let WalletService = class WalletService {
             throw error;
         }
     }
-    async reverseTransaction(actorId, transactionId, reason, key) {
+    async reverseTransaction(actorId, transactionId, reason, key, expectedAuthVersion) {
         if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500)
             throw new common_1.BadRequestException('A reason of 1–500 characters is required');
         reason = reason.trim();
@@ -224,6 +229,8 @@ let WalletService = class WalletService {
             const admin = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
             if (!admin.isActive || admin.closedAt || admin.role !== 'ADMIN')
                 throw new common_1.ForbiddenException();
+            if (expectedAuthVersion !== undefined && admin.authVersion !== expectedAuthVersion)
+                throw new common_1.ForbiddenException('Authentication changed; repeat step-up');
             await tx.$queryRaw `SELECT pg_advisory_xact_lock(hashtextextended(${`reversal:${transactionId}`}, 0))::text`;
             const original = await tx.transaction.findUnique({
                 where: { id: transactionId },

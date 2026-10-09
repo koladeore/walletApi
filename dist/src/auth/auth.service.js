@@ -147,6 +147,12 @@ let AuthService = class AuthService {
             const payload = await this.jwtService.verifyAsync(refreshToken, {
                 secret: this.configService.get('REFRESH_SECRET'),
             });
+            const user = await this.usersService.findById(payload.sub);
+            if (!user ||
+                !user.isActive ||
+                user.closedAt ||
+                (payload.authVersion ?? 0) !== user.authVersion)
+                return;
             const dbTokens = await this.prisma.authToken.findMany({
                 where: { userId: payload.sub, isRevoked: false },
             });

@@ -55,7 +55,7 @@ export class BeneficiariesService {
       providerMode: 'test',
     };
   }
-  async create(userId: string, input: BankAccountDto) {
+  async create(userId: string, input: BankAccountDto, expectedAuthVersion?: number) {
     this.validate(input);
     await this.activeUser(userId);
     // Re-resolve on saving; never trust a name supplied by the client or a prior preview.
@@ -65,6 +65,8 @@ export class BeneficiariesService {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user || !user.isActive || user.closedAt)
         throw new ForbiddenException('Active user required');
+      if (expectedAuthVersion !== undefined && user.authVersion !== expectedAuthVersion)
+        throw new ForbiddenException('Authentication changed; repeat step-up');
       // Serializes retries even when Prisma cannot issue a native upsert.
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`beneficiary:${userId}:${input.bankCode}:${input.accountNumber}`}, 0))::text`;
       return tx.beneficiary.upsert({

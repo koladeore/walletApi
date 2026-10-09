@@ -1,3 +1,4 @@
+import { StepUpGuard } from '../security/step-up.guard';
 import { Test } from '@nestjs/testing';
 import { UnauthorizedException, ValidationPipe } from '@nestjs/common';
 import type { INestApplication, ExecutionContext } from '@nestjs/common';
@@ -16,6 +17,8 @@ describe('Payout HTTP boundary', () => {
       controllers: [PayoutsController],
       providers: [{ provide: PayoutsService, useValue: service }],
     })
+      .overrideGuard(StepUpGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(JwtAuthGuard)
       .useValue({
         canActivate: (ctx: ExecutionContext) => {
@@ -59,7 +62,13 @@ describe('Payout HTTP boundary', () => {
       .set('x-idempotency-key', 'same-request')
       .send({ beneficiaryId, amount: '100.50' })
       .expect(201);
-    expect(service.create).toHaveBeenCalledWith('user1', beneficiaryId, '100.50', 'same-request');
+    expect(service.create).toHaveBeenCalledWith(
+      'user1',
+      beneficiaryId,
+      '100.50',
+      'same-request',
+      undefined,
+    );
   });
   it.each([
     { beneficiaryId, amount: 100 },

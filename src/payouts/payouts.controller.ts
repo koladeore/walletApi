@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { PayoutDto } from './payout.dto';
 import { PayoutsService } from './payouts.service';
+import { SensitiveAction } from '../security/step-up.guard';
 
 @ApiTags('payouts')
 @ApiBearerAuth()
@@ -22,6 +23,7 @@ import { PayoutsService } from './payouts.service';
 export class PayoutsController {
   constructor(private readonly payouts: PayoutsService) {}
   @Post()
+  @SensitiveAction('PAYOUT')
   @ApiHeader({ name: 'x-idempotency-key', required: true })
   @ApiOperation({ summary: 'Reserve funds and request a Paystack test payout' })
   create(
@@ -29,7 +31,13 @@ export class PayoutsController {
     @Body() dto: PayoutDto,
     @Headers('x-idempotency-key') key: string,
   ) {
-    return this.payouts.create(req.user.id, dto.beneficiaryId, dto.amount, key);
+    return this.payouts.create(
+      req.user.id,
+      dto.beneficiaryId,
+      dto.amount,
+      key,
+      req.stepUpAuthVersion,
+    );
   }
   @Get()
   @ApiOperation({ summary: 'List your latest 100 payouts' })

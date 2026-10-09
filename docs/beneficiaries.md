@@ -1,5 +1,7 @@
 # Beneficiaries and bank-account verification
 
+Sensitive write routes now require verified email and an action-bound `x-step-up-token`. Complete the [account security flow](account-security.md) before following write examples below.
+
 This step supports Nigerian NGN bank accounts through the existing Paystack test integration. Apply the migration and restart:
 
 ```bash

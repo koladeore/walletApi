@@ -12,10 +12,13 @@ The API validates configuration at startup, before serving requests. Errors name
 | REDIS_HOST | Required in production; defaults to localhost in development/test |
 | ENABLE_SIMULATED_FUNDING | `true` or `false`; default false; true is rejected in production |
 | RESEND_API_KEY | Optional for local mock delivery; if supplied, must begin with `re_` |
+| AUTH_DELIVERY_MODE | `disabled` (default), `test`, or `provider`; test is rejected in production |
+| AUTH_SECURITY_SECRET | Distinct strong secret required in production; development/test falls back to JWT_SECRET if blank |
+| AUTH_EMAIL_FROM | Bare sender email; required with RESEND_API_KEY for provider authentication delivery |
 | PAYSTACK_ENABLED | `true` or `false`; default false |
 | PAYSTACK_SECRET_KEY | Required when enabled; only `sk_test_` secret keys are accepted, even in production |
 
-Validation checks syntax and policy, not whether database/Redis credentials work or a provider key is valid. Length checks cannot prove randomness: generate secrets cryptographically. The application still permits mock email without a Resend key; configure real delivery before launch.
+Validation checks syntax and policy, not whether database/Redis credentials work or a provider key is valid. Length checks cannot prove randomness: generate secrets cryptographically. Authentication codes use the explicit delivery mode above and fail closed when delivery is disabled. Existing general email features may still use mock delivery without a Resend key; configure real delivery before launch. See [account security](account-security.md) for verification, password reset, step-up approvals, and provider setup.
 
 ## Paystack test integration
 
@@ -32,17 +35,17 @@ References: [Paystack authentication and secret storage](https://paystack.com/do
 
 ## Generate signing secrets
 
-Run this command twice and place the separate outputs in `.env` under JWT_SECRET and REFRESH_SECRET. Do not commit or share the outputs:
+Run this command three times and place the separate outputs in `.env` under JWT_SECRET, REFRESH_SECRET, and AUTH_SECURITY_SECRET. Do not commit or share the outputs:
 
 ```bash
 node -e 'console.log(require("crypto").randomBytes(48).toString("hex"))'
 ```
 
-Compose no longer provides JWT secret fallbacks. Missing values cause Compose to stop with a named configuration error. Changing signing secrets invalidates existing tokens after restart; users must log in again.
+Compose requires all three secrets. Missing values cause Compose to stop with a named configuration error. Changing signing secrets invalidates existing tokens after restart; users must log in again. Changing AUTH_SECURITY_SECRET invalidates outstanding security codes and proofs and prevents decryption of queued messages, so coordinate rotations.
 
 ## Local setup and applying changes
 
-For a new checkout, copy `.env.example` to `.env` and supply both secrets. The example contains localhost database settings for native development. Compose sets production mode and its own database/Redis addresses.
+For a new checkout, copy `.env.example` to `.env` and supply the signing secrets; also supply AUTH_SECURITY_SECRET when using Compose or production. The example contains localhost database settings for native development. Compose sets production mode and its own database/Redis addresses.
 
 Apply code changes with `docker compose up -d --build api`. Later environment-only changes use `docker compose up -d api`.
 

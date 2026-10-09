@@ -81,6 +81,27 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     errors.push('ENABLE_SIMULATED_FUNDING must be false in production');
   }
   const resendKey = config.RESEND_API_KEY;
+  const authDelivery = text('AUTH_DELIVERY_MODE', 'disabled');
+  if (!['disabled', 'test', 'provider'].includes(authDelivery))
+    errors.push('AUTH_DELIVERY_MODE must be disabled, test, or provider');
+  if (nodeEnv === 'production' && authDelivery === 'test')
+    errors.push('AUTH_DELIVERY_MODE test is forbidden in production');
+  const authSecret =
+    nodeEnv === 'production'
+      ? secret('AUTH_SECURITY_SECRET')
+      : config.AUTH_SECURITY_SECRET === undefined || config.AUTH_SECURITY_SECRET === ''
+        ? jwtSecret
+        : text('AUTH_SECURITY_SECRET');
+  if (nodeEnv === 'production' && (authSecret === jwtSecret || authSecret === refreshSecret))
+    errors.push('AUTH_SECURITY_SECRET must differ from JWT and refresh secrets');
+  const authFrom = config.AUTH_EMAIL_FROM ?? '';
+  if (
+    typeof authFrom !== 'string' ||
+    (authFrom && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(authFrom))
+  )
+    errors.push('AUTH_EMAIL_FROM must be an email address');
+  if (authDelivery === 'provider' && (!resendKey || !authFrom))
+    errors.push('AUTH_DELIVERY_MODE provider requires RESEND_API_KEY and AUTH_EMAIL_FROM');
   const paystackEnabled = text('PAYSTACK_ENABLED', 'false');
   if (!['true', 'false'].includes(paystackEnabled))
     errors.push('PAYSTACK_ENABLED must be true or false');
@@ -110,5 +131,8 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     ENABLE_SIMULATED_FUNDING: simulation,
     PAYSTACK_ENABLED: paystackEnabled,
     PAYSTACK_SECRET_KEY: paystackKey,
+    AUTH_DELIVERY_MODE: authDelivery,
+    AUTH_SECURITY_SECRET: authSecret,
+    AUTH_EMAIL_FROM: authFrom,
   };
 }

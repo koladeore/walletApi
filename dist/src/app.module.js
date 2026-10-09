@@ -48,6 +48,16 @@ exports.AppModule = AppModule = __decorate([
             }),
             nestjs_pino_1.LoggerModule.forRoot({
                 pinoHttp: {
+                    redact: [
+                        'req.headers.authorization',
+                        'req.headers.cookie',
+                        'req.headers["x-step-up-token"]',
+                        'req.body.password',
+                        'req.body.newPassword',
+                        'req.body.code',
+                        'req.body.refreshToken',
+                        'req.body.details',
+                    ],
                     customProps: () => ({
                         context: 'HTTP',
                     }),

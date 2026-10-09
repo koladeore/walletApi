@@ -21,6 +21,7 @@ import { FundWalletDto } from './dto/fund-wallet.dto';
 import { TransferDto } from './dto/transfer.dto';
 import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
+import { SensitiveAction } from '../security/step-up.guard';
 
 @ApiTags('wallet')
 @ApiBearerAuth()
@@ -60,6 +61,7 @@ export class WalletController {
   }
 
   @Post('transfer')
+  @SensitiveAction('TRANSFER')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Transfer funds to another user' })
   @ApiHeader({
@@ -88,10 +90,12 @@ export class WalletController {
       dto.receiverEmail,
       dto.amount,
       idempotencyKey,
+      req.stepUpAuthVersion,
     );
   }
 
   @Post('transactions/:id/reverse')
+  @SensitiveAction('ADMIN')
   @UseGuards(AdminGuard)
   @HttpCode(200)
   @ApiOperation({ summary: 'Reverse a full internal transfer or simulated funding (admin only)' })
@@ -102,7 +106,13 @@ export class WalletController {
     @Body() dto: FinancialReasonDto,
     @Headers('x-idempotency-key') key: string,
   ) {
-    return this.walletService.reverseTransaction(req.user.id, id, dto.reason, key);
+    return this.walletService.reverseTransaction(
+      req.user.id,
+      id,
+      dto.reason,
+      key,
+      req.stepUpAuthVersion,
+    );
   }
 
   @Get('transactions')

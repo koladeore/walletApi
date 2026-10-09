@@ -1,3 +1,4 @@
+import { StepUpGuard } from '../security/step-up.guard';
 import { Test } from '@nestjs/testing';
 import { UnauthorizedException, ValidationPipe } from '@nestjs/common';
 import type { INestApplication, ExecutionContext } from '@nestjs/common';
@@ -27,6 +28,8 @@ describe('Financial operations access', () => {
         },
       ],
     })
+      .overrideGuard(StepUpGuard)
+      .useValue({ canActivate: () => true })
       .overrideGuard(JwtAuthGuard)
       .useValue({
         canActivate: (ctx: ExecutionContext) => {

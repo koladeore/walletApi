@@ -28,10 +28,10 @@ export declare class OperationsController {
     }[]>;
     issues(): import("@prisma/client").Prisma.PrismaPromise<{
         id: string;
-        key: string;
         status: string;
-        reference: string | null;
         details: import("@prisma/client/runtime/client").JsonValue;
+        key: string;
+        reference: string | null;
         kind: string;
         resolution: string | null;
         firstSeenAt: Date;
@@ -63,10 +63,10 @@ export declare class OperationsController {
     }[]>;
     resolve(req: AuthenticatedRequest, id: string, dto: InvestigationDto): Promise<{
         id: string;
-        key: string;
         status: string;
-        reference: string | null;
         details: import("@prisma/client/runtime/client").JsonValue;
+        key: string;
+        reference: string | null;
         kind: string;
         resolution: string | null;
         firstSeenAt: Date;

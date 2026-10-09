@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const paystack_module_1 = require("../paystack/paystack.module");
 const beneficiaries_service_1 = require("./beneficiaries.service");
 const beneficiaries_controller_1 = require("./beneficiaries.controller");
+const security_module_1 = require("../security/security.module");
 let BeneficiariesModule = class BeneficiariesModule {
 };
 exports.BeneficiariesModule = BeneficiariesModule;
 exports.BeneficiariesModule = BeneficiariesModule = __decorate([
     (0, common_1.Module)({
-        imports: [paystack_module_1.PaystackModule],
+        imports: [paystack_module_1.PaystackModule, security_module_1.SecurityModule],
         providers: [beneficiaries_service_1.BeneficiariesService],
         controllers: [beneficiaries_controller_1.BeneficiariesController],
         exports: [beneficiaries_service_1.BeneficiariesService],

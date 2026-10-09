@@ -159,6 +159,7 @@ export class WalletService {
     receiverEmail: string,
     amount: string,
     idempotencyKey: string,
+    expectedAuthVersion?: number,
   ) {
     const amountMinor = parseNaira(amount);
 
@@ -168,6 +169,8 @@ export class WalletService {
         ['transfer', senderId, receiverEmail, 'NGN', amountMinor.toString()],
         async (tx) => {
           // Get sender profile and wallet
+          if (expectedAuthVersion !== undefined)
+            await tx.$queryRaw`SELECT id FROM users WHERE id=${senderId} FOR SHARE`;
           const sender = await tx.user.findUnique({
             where: { id: senderId },
             include: { wallet: true },
@@ -176,6 +179,11 @@ export class WalletService {
           if (!sender || !sender.wallet) {
             throw new NotFoundException('Sender wallet not found');
           }
+          if (
+            expectedAuthVersion !== undefined &&
+            (!sender.isActive || sender.closedAt || sender.authVersion !== expectedAuthVersion)
+          )
+            throw new ForbiddenException('Authentication changed; repeat step-up');
 
           // Get receiver profile and wallet
           const receiver = await tx.user.findUnique({
@@ -302,7 +310,13 @@ export class WalletService {
     }
   }
 
-  async reverseTransaction(actorId: string, transactionId: string, reason: string, key: string) {
+  async reverseTransaction(
+    actorId: string,
+    transactionId: string,
+    reason: string,
+    key: string,
+    expectedAuthVersion?: number,
+  ) {
     if (typeof reason !== 'string' || !reason.trim() || reason.trim().length > 500)
       throw new BadRequestException('A reason of 1–500 characters is required');
     reason = reason.trim();
@@ -317,6 +331,8 @@ export class WalletService {
         const admin = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
         if (!admin.isActive || admin.closedAt || admin.role !== 'ADMIN')
           throw new ForbiddenException();
+        if (expectedAuthVersion !== undefined && admin.authVersion !== expectedAuthVersion)
+          throw new ForbiddenException('Authentication changed; repeat step-up');
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`reversal:${transactionId}`}, 0))::text`;
         const original = await tx.transaction.findUnique({
           where: { id: transactionId },
