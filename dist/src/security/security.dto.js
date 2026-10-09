@@ -19,12 +19,20 @@ class CodeDto {
 }
 exports.CodeDto = CodeDto;
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiProperty)({
+        format: 'uuid',
+        example: 'de305d54-75b4-431b-adb2-eb6b9e546014',
+        description: 'Challenge ID from the request response or recovery email',
+    }),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CodeDto.prototype, "challengeId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: '123456' }),
+    (0, swagger_1.ApiProperty)({
+        example: '012345',
+        pattern: '^\\d{6}$',
+        description: 'Six-digit code from email, as a string; preserve leading zeros',
+    }),
     (0, class_transformer_1.Transform)(({ obj }) => obj.code),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.Matches)(/^\d{6}$/),
@@ -35,7 +43,7 @@ class ResetRequestDto {
 }
 exports.ResetRequestDto = ResetRequestDto;
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiProperty)({ example: 'user@example.com' }),
     (0, class_validator_1.IsEmail)(),
     (0, class_validator_1.MaxLength)(320),
     __metadata("design:type", String)
@@ -45,7 +53,12 @@ class ResetConfirmDto extends CodeDto {
 }
 exports.ResetConfirmDto = ResetConfirmDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ minLength: 12, maxLength: 72 }),
+    (0, swagger_1.ApiProperty)({
+        minLength: 12,
+        maxLength: 72,
+        example: 'MyNewPassword123!',
+        description: 'At least 12 characters and at most 72 UTF-8 bytes. Successful reset invalidates existing sessions.',
+    }),
     (0, class_transformer_1.Transform)(({ obj }) => obj.newPassword),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(12),
@@ -59,7 +72,10 @@ class StepUpRequestDto {
 }
 exports.StepUpRequestDto = StepUpRequestDto;
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiProperty)({
+        example: 'YOUR_CURRENT_PASSWORD',
+        description: 'Current login password; never store this in frontend logs',
+    }),
     (0, class_transformer_1.Transform)(({ obj }) => obj.password),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(1),

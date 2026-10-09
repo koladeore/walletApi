@@ -67,7 +67,13 @@ __decorate([
     (0, common_1.Post)('refresh'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, swagger_1.ApiOperation)({ summary: 'Refresh access token' }),
-    (0, swagger_1.ApiBody)({ schema: { type: 'object', properties: { refreshToken: { type: 'string' } } } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            required: ['refreshToken'],
+            properties: { refreshToken: { type: 'string', example: 'eyJ...refresh-token' } },
+        },
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'New access token successfully generated.' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized / Invalid refresh token.' }),
     __param(0, (0, common_1.Body)('refreshToken')),
@@ -79,7 +85,13 @@ __decorate([
     (0, common_1.Post)('logout'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, swagger_1.ApiOperation)({ summary: 'Log out user' }),
-    (0, swagger_1.ApiBody)({ schema: { type: 'object', properties: { refreshToken: { type: 'string' } } } }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            required: ['refreshToken'],
+            properties: { refreshToken: { type: 'string', example: 'eyJ...refresh-token' } },
+        },
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User successfully logged out.' }),
     __param(0, (0, common_1.Body)('refreshToken')),
     __metadata("design:type", Function),

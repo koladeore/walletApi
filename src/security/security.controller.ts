@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { SecurityService } from './security.service';
@@ -50,6 +50,47 @@ export class SecurityController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Confirm password and request an email code for an exact sensitive action',
+  })
+  @ApiBody({
+    type: StepUpRequestDto,
+    examples: {
+      payout: {
+        summary: 'Approve an exact payout',
+        value: {
+          password: 'YOUR_CURRENT_PASSWORD',
+          action: 'PAYOUT',
+          details: { beneficiaryId: 'de305d54-75b4-431b-adb2-eb6b9e546014', amount: '100.00' },
+        },
+      },
+      transfer: {
+        summary: 'Approve an internal transfer',
+        value: {
+          password: 'YOUR_CURRENT_PASSWORD',
+          action: 'TRANSFER',
+          details: { receiverEmail: 'recipient@example.com', amount: '100.00' },
+        },
+      },
+      beneficiary: {
+        summary: 'Approve saving bank details',
+        value: {
+          password: 'YOUR_CURRENT_PASSWORD',
+          action: 'BENEFICIARY',
+          details: { bankCode: '058', accountNumber: '0001234567' },
+        },
+      },
+      admin: {
+        summary: 'Approve an exact staff request',
+        value: {
+          password: 'YOUR_CURRENT_PASSWORD',
+          action: 'ADMIN',
+          details: {
+            method: 'PATCH',
+            path: '/api/v1/users/de305d54-75b4-431b-adb2-eb6b9e546014/status',
+            body: { isActive: false, reason: 'Account investigation' },
+          },
+        },
+      },
+    },
   })
   stepRequest(@Req() req: AuthenticatedRequest, @Body() dto: StepUpRequestDto) {
     return this.security.requestStepUp(req.user.id, dto.password, dto.action, dto.details);

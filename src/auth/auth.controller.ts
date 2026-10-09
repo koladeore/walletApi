@@ -33,7 +33,13 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
-  @ApiBody({ schema: { type: 'object', properties: { refreshToken: { type: 'string' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['refreshToken'],
+      properties: { refreshToken: { type: 'string', example: 'eyJ...refresh-token' } },
+    },
+  })
   @ApiResponse({ status: 200, description: 'New access token successfully generated.' })
   @ApiResponse({ status: 401, description: 'Unauthorized / Invalid refresh token.' })
   refresh(@Body('refreshToken') refreshToken: string) {
@@ -43,7 +49,13 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Log out user' })
-  @ApiBody({ schema: { type: 'object', properties: { refreshToken: { type: 'string' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['refreshToken'],
+      properties: { refreshToken: { type: 'string', example: 'eyJ...refresh-token' } },
+    },
+  })
   @ApiResponse({ status: 200, description: 'User successfully logged out.' })
   async logout(@Body('refreshToken') refreshToken: string) {
     await this.authService.logout(refreshToken);

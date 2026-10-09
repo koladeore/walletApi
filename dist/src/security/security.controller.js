@@ -105,6 +105,47 @@ __decorate([
     (0, swagger_1.ApiOperation)({
         summary: 'Confirm password and request an email code for an exact sensitive action',
     }),
+    (0, swagger_1.ApiBody)({
+        type: security_dto_1.StepUpRequestDto,
+        examples: {
+            payout: {
+                summary: 'Approve an exact payout',
+                value: {
+                    password: 'YOUR_CURRENT_PASSWORD',
+                    action: 'PAYOUT',
+                    details: { beneficiaryId: 'de305d54-75b4-431b-adb2-eb6b9e546014', amount: '100.00' },
+                },
+            },
+            transfer: {
+                summary: 'Approve an internal transfer',
+                value: {
+                    password: 'YOUR_CURRENT_PASSWORD',
+                    action: 'TRANSFER',
+                    details: { receiverEmail: 'recipient@example.com', amount: '100.00' },
+                },
+            },
+            beneficiary: {
+                summary: 'Approve saving bank details',
+                value: {
+                    password: 'YOUR_CURRENT_PASSWORD',
+                    action: 'BENEFICIARY',
+                    details: { bankCode: '058', accountNumber: '0001234567' },
+                },
+            },
+            admin: {
+                summary: 'Approve an exact staff request',
+                value: {
+                    password: 'YOUR_CURRENT_PASSWORD',
+                    action: 'ADMIN',
+                    details: {
+                        method: 'PATCH',
+                        path: '/api/v1/users/de305d54-75b4-431b-adb2-eb6b9e546014/status',
+                        body: { isActive: false, reason: 'Account investigation' },
+                    },
+                },
+            },
+        },
+    }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
