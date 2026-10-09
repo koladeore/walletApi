@@ -21,6 +21,7 @@ export declare class WalletService {
             userId: string;
             balanceMinor: never;
             reservedMinor: never;
+            outgoingFrozen: boolean;
             currency: string;
             balance: string;
             reservedBalance: string;

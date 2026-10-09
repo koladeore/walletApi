@@ -7,6 +7,7 @@ export interface TransferNotice {
     transferCode: string;
 }
 export interface VerifiedTransfer extends TransferNotice {
+    feeMinor?: string;
     recipientCode: string;
     bankCode: string;
     accountNumber: string;

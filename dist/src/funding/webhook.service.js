@@ -21,16 +21,20 @@ const payment_1 = require("../paystack/payment");
 const confirmation_service_1 = require("./confirmation.service");
 const transfer_1 = require("../paystack/transfer");
 const payouts_service_1 = require("../payouts/payouts.service");
+const financial_service_1 = require("../operations/financial.service");
+const operations_provider_service_1 = require("../paystack/operations-provider.service");
 let WebhookService = class WebhookService {
     prisma;
     paystack;
     confirmation;
     payouts;
-    constructor(prisma, paystack, confirmation, payouts) {
+    financial;
+    constructor(prisma, paystack, confirmation, payouts, financial) {
         this.prisma = prisma;
         this.paystack = paystack;
         this.confirmation = confirmation;
         this.payouts = payouts;
+        this.financial = financial;
     }
     async receive(raw, signature) {
         if (!this.paystack.authenticateWebhook(raw, signature))
@@ -56,6 +60,22 @@ let WebhookService = class WebhookService {
             }
             catch {
                 throw new common_1.BadRequestException('Invalid transfer webhook');
+            }
+        }
+        if (body.event.startsWith('refund.') || body.event.startsWith('charge.dispute.')) {
+            try {
+                const data = (0, payment_1.record)(body.data);
+                payment = {
+                    kind: body.event.startsWith('refund.') ? 'REFUND' : 'DISPUTE',
+                    providerId: (0, operations_provider_service_1.providerId)(data.id),
+                    reference: typeof data.transaction === 'object' &&
+                        typeof (0, payment_1.record)(data.transaction).reference === 'string'
+                        ? String((0, payment_1.record)(data.transaction).reference)
+                        : '',
+                };
+            }
+            catch {
+                throw new common_1.BadRequestException('Invalid financial webhook');
             }
         }
         await this.prisma.paystackEvent.createMany({
@@ -88,7 +108,13 @@ let WebhookService = class WebhookService {
             return;
         const event = await this.prisma.paystackEvent.findUniqueOrThrow({ where: { id } });
         try {
-            if (event.eventType.startsWith('transfer.')) {
+            if (event.eventType.startsWith('refund.') || event.eventType.startsWith('charge.dispute.')) {
+                if (!this.financial)
+                    throw new Error('Financial processing unavailable');
+                const notice = event.payment;
+                await this.financial.processCase(notice.kind, notice.providerId);
+            }
+            else if (event.eventType.startsWith('transfer.')) {
                 if (!this.payouts)
                     throw new Error('Payout processing unavailable');
                 const payout = await this.payouts.verify(event.reference ?? '', undefined, event.payment);
@@ -127,9 +153,11 @@ exports.WebhookService = WebhookService;
 exports.WebhookService = WebhookService = __decorate([
     (0, common_1.Injectable)(),
     __param(3, (0, common_1.Optional)()),
+    __param(4, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         paystack_service_1.PaystackService,
         confirmation_service_1.ConfirmationService,
-        payouts_service_1.PayoutsService])
+        payouts_service_1.PayoutsService,
+        financial_service_1.FinancialService])
 ], WebhookService);
 //# sourceMappingURL=webhook.service.js.map

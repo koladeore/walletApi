@@ -1,4 +1,4 @@
-import { record } from './payment';
+import { parseFee, record } from './payment';
 
 export interface TransferNotice {
   reference: string;
@@ -9,6 +9,7 @@ export interface TransferNotice {
   transferCode: string;
 }
 export interface VerifiedTransfer extends TransferNotice {
+  feeMinor?: string;
   recipientCode: string;
   bankCode: string;
   accountNumber: string;
@@ -51,5 +52,8 @@ export function parseVerifiedTransfer(value: unknown): VerifiedTransfer {
     recipientCode: recipient.recipient_code,
     bankCode: details.bank_code,
     accountNumber: details.account_number,
+    ...(record(value).fee_charged !== null && record(value).fee_charged !== undefined
+      ? { feeMinor: parseFee(record(value).fee_charged) }
+      : {}),
   };
 }

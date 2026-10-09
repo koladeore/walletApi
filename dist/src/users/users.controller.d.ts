@@ -33,6 +33,7 @@ export declare class UsersController {
         userId: string;
         balanceMinor: bigint;
         reservedMinor: bigint;
+        outgoingFrozen: boolean;
         currency: string;
     } & {
         balanceMinor: string;

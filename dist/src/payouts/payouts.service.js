@@ -98,6 +98,8 @@ let PayoutsService = class PayoutsService {
             const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: user.wallet.id } });
             if (wallet.closedAt || wallet.currency !== 'NGN')
                 throw new common_1.ConflictException('Open NGN wallet required');
+            if (wallet.outgoingFrozen)
+                throw new common_1.ForbiddenException('Wallet outgoing money is frozen for investigation');
             if (wallet.balanceMinor - wallet.reservedMinor < amountMinor)
                 throw new common_1.BadRequestException('Insufficient available balance');
             const reference = `payout-${(0, node_crypto_1.randomUUID)()}`;
@@ -141,9 +143,16 @@ let PayoutsService = class PayoutsService {
             return;
         try {
             const recipientCode = payout.recipientCode ?? (await this.provider.createRecipient(payout));
-            const submit = await this.prisma.payout.updateMany({
-                where: { id: payout.id, submittedAt: null, status: 'PENDING' },
-                data: { recipientCode, submittedAt: new Date(), status: 'PROCESSING', uncertain: true },
+            const submit = await this.prisma.$transaction(async (tx) => {
+                await tx.$queryRaw `SELECT id FROM payouts WHERE id=${payout.id} FOR UPDATE`;
+                await tx.$queryRaw `SELECT id FROM wallets WHERE id=${payout.walletId} FOR UPDATE`;
+                const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: payout.walletId } });
+                if (wallet.outgoingFrozen || wallet.closedAt)
+                    throw new common_1.ForbiddenException('Wallet outgoing money is frozen for investigation');
+                return tx.payout.updateMany({
+                    where: { id: payout.id, submittedAt: null, status: 'PENDING' },
+                    data: { recipientCode, submittedAt: new Date(), status: 'PROCESSING', uncertain: true },
+                });
             });
             if (!submit.count)
                 return;

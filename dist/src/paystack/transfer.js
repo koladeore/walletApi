@@ -41,6 +41,9 @@ function parseVerifiedTransfer(value) {
         recipientCode: recipient.recipient_code,
         bankCode: details.bank_code,
         accountNumber: details.account_number,
+        ...((0, payment_1.record)(value).fee_charged !== null && (0, payment_1.record)(value).fee_charged !== undefined
+            ? { feeMinor: (0, payment_1.parseFee)((0, payment_1.record)(value).fee_charged) }
+            : {}),
     };
 }
 //# sourceMappingURL=transfer.js.map

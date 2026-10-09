@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.record = record;
 exports.parsePayment = parsePayment;
+exports.parseFee = parseFee;
 const common_1 = require("@nestjs/common");
 function record(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -31,6 +32,12 @@ function parsePayment(value) {
         status: string(data.status),
         email: string(customer.email),
         transactionId: id,
+        ...(data.fees !== null && data.fees !== undefined ? { feeMinor: parseFee(data.fees) } : {}),
     };
+}
+function parseFee(value) {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+        throw new Error('Invalid provider fee');
+    return String(value);
 }
 //# sourceMappingURL=payment.js.map

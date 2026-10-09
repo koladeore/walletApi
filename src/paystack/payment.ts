@@ -8,6 +8,7 @@ export interface PaystackPayment {
   status: string;
   email: string;
   transactionId: string;
+  feeMinor?: string;
 }
 
 export function record(value: unknown): Record<string, unknown> {
@@ -41,5 +42,12 @@ export function parsePayment(value: unknown): PaystackPayment {
     status: string(data.status),
     email: string(customer.email),
     transactionId: id,
+    ...(data.fees !== null && data.fees !== undefined ? { feeMinor: parseFee(data.fees) } : {}),
   };
+}
+
+export function parseFee(value: unknown): string {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+    throw new Error('Invalid provider fee');
+  return String(value);
 }

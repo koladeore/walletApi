@@ -53,6 +53,7 @@ model Wallet {
   balanceMinor        BigInt        @default(0)
   reservedMinor       BigInt        @default(0)
   closedAt            DateTime?
+  outgoingFrozen      Boolean @default(false)
   reservations        WithdrawalReservation[]
   fundingRequests     FundingRequest[]
   payouts             Payout[]
@@ -328,4 +329,63 @@ model Payout {
   @@unique([userId, idempotencyKey])
   @@index([status, nextCheckAt])
   @@map("payouts")
+}
+
+model ReconciliationRun {
+  id String @id @default(uuid())
+  status String @default("RUNNING")
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  summary Json?
+  @@map("reconciliation_runs")
+}
+
+model ReconciliationIssue {
+  id String @id @default(uuid())
+  key String @unique
+  kind String
+  reference String?
+  details Json
+  status String @default("OPEN")
+  firstSeenAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolution String?
+  @@index([status, lastSeenAt])
+  @@map("reconciliation_issues")
+}
+
+model FinancialCase {
+  id String @id @default(uuid())
+  kind String
+  providerId String
+  fundingId String
+  reference String
+  walletId String
+  providerStatus String
+  amountMinor BigInt
+  recoveredMinor BigInt @default(0)
+  shortfallMinor BigInt @default(0)
+  applied Boolean @default(false)
+  nextCheckAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([kind, providerId])
+  @@index([nextCheckAt])
+  @@map("financial_cases")
+}
+
+model ProviderFee {
+  id String @id
+  reference String
+  kind String
+  amountMinor BigInt
+  createdAt DateTime @default(now())
+  @@map("provider_fees")
+}
+
+model ReconciliationLease {
+  id String @id
+  lockedUntil DateTime
+  @@map("reconciliation_leases")
 }

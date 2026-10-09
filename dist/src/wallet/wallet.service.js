@@ -149,6 +149,8 @@ let WalletService = class WalletService {
                 });
                 if (freshSenderWallet.closedAt || freshReceiver.closedAt)
                     throw new common_1.ConflictException('Wallet is closed');
+                if (freshSenderWallet.outgoingFrozen)
+                    throw new common_1.ForbiddenException('Wallet outgoing money is frozen for investigation');
                 if (freshSenderWallet.currency !== 'NGN' || freshReceiver.currency !== 'NGN') {
                     throw new common_1.BadRequestException('Both wallets must use NGN');
                 }
@@ -312,6 +314,8 @@ let WalletService = class WalletService {
             const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
             if (current.closedAt)
                 throw new common_1.ConflictException('Wallet is closed');
+            if (current.outgoingFrozen)
+                throw new common_1.ForbiddenException('Wallet outgoing money is frozen for investigation');
             if (current.currency !== 'NGN')
                 throw new common_1.BadRequestException('Only NGN wallets are supported');
             if (current.balanceMinor - current.reservedMinor < amountMinor)

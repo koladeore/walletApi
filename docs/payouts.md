@@ -54,7 +54,7 @@ Database constraints tie payout statuses to reservations. Capture uses the exist
 
 ## Scope and verification
 
-This step covers reservations, recipient creation, payout submission, outcome checks, payout events, and reversals. Customer fees, refunds/disputes/chargebacks, and full provider-versus-ledger reconciliation remain separate Milestone 4 work. The customer's reservation covers payout principal only; this implementation does not charge provider transfer fees to the customer or post a fee journal. Keep test-mode accounting separate from live money before enabling production.
+This step covers reservations, recipient creation, payout submission, outcome checks, payout events, and reversals. [Financial operations](financial-operations.md) adds refunds/disputes/chargebacks, business-borne fee accounting, and provider-versus-ledger reconciliation. The customer's reservation covers payout principal only; customer-paid fees are not enabled. Keep test-mode accounting separate from live money before enabling production.
 
 `npm run test:payouts` runs PostgreSQL balance-safety tests against a migrated disposable `LEDGER_TEST_DATABASE_URL` database named `wallet_ledger_test*`. Provider responses are mocked to force success, failure, reversal, mismatches, and timeouts. Never run database integration tests against the application database.
 

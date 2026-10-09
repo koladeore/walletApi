@@ -16,6 +16,7 @@ export declare class WalletController {
             userId: string;
             balanceMinor: never;
             reservedMinor: never;
+            outgoingFrozen: boolean;
             currency: string;
             balance: string;
             reservedBalance: string;

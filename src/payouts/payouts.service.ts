@@ -95,6 +95,8 @@ export class PayoutsService {
       const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: user.wallet.id } });
       if (wallet.closedAt || wallet.currency !== 'NGN')
         throw new ConflictException('Open NGN wallet required');
+      if (wallet.outgoingFrozen)
+        throw new ForbiddenException('Wallet outgoing money is frozen for investigation');
       if (wallet.balanceMinor - wallet.reservedMinor < amountMinor)
         throw new BadRequestException('Insufficient available balance');
       const reference = `payout-${randomUUID()}`;
@@ -138,9 +140,16 @@ export class PayoutsService {
     try {
       const recipientCode = payout.recipientCode ?? (await this.provider.createRecipient(payout));
       // A compare-and-set commits the submission marker before sending. A crash here is uncertain.
-      const submit = await this.prisma.payout.updateMany({
-        where: { id: payout.id, submittedAt: null, status: 'PENDING' },
-        data: { recipientCode, submittedAt: new Date(), status: 'PROCESSING', uncertain: true },
+      const submit = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM payouts WHERE id=${payout.id} FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM wallets WHERE id=${payout.walletId} FOR UPDATE`;
+        const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: payout.walletId } });
+        if (wallet.outgoingFrozen || wallet.closedAt)
+          throw new ForbiddenException('Wallet outgoing money is frozen for investigation');
+        return tx.payout.updateMany({
+          where: { id: payout.id, submittedAt: null, status: 'PENDING' },
+          data: { recipientCode, submittedAt: new Date(), status: 'PROCESSING', uncertain: true },
+        });
       });
       if (!submit.count) return;
       const notice = await this.provider.initiate({

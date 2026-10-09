@@ -15,6 +15,8 @@ import { ConfirmationService } from './confirmation.service';
 import { parseTransferNotice } from '../paystack/transfer';
 import type { TransferNotice } from '../paystack/transfer';
 import { PayoutsService } from '../payouts/payouts.service';
+import { FinancialService } from '../operations/financial.service';
+import { providerId } from '../paystack/operations-provider.service';
 
 @Injectable()
 export class WebhookService {
@@ -23,6 +25,7 @@ export class WebhookService {
     private readonly paystack: PaystackService,
     private readonly confirmation: ConfirmationService,
     @Optional() private readonly payouts?: PayoutsService,
+    @Optional() private readonly financial?: FinancialService,
   ) {}
 
   async receive(raw: Buffer | undefined, signature: string | undefined) {
@@ -39,13 +42,33 @@ export class WebhookService {
       throw new BadRequestException('Webhook event type required');
     const id = createHash('sha256').update(raw).digest('hex');
     // Retain only fields needed for matching; omit card authorizations and other personal data.
-    let payment: PaystackPayment | TransferNotice | undefined;
+    let payment:
+      | PaystackPayment
+      | TransferNotice
+      | { kind: 'REFUND' | 'DISPUTE'; providerId: string; reference: string }
+      | undefined;
     if (body.event === 'charge.success') payment = parsePayment(body.data);
     if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(body.event)) {
       try {
         payment = parseTransferNotice(body.data);
       } catch {
         throw new BadRequestException('Invalid transfer webhook');
+      }
+    }
+    if (body.event.startsWith('refund.') || body.event.startsWith('charge.dispute.')) {
+      try {
+        const data = record(body.data);
+        payment = {
+          kind: body.event.startsWith('refund.') ? 'REFUND' : 'DISPUTE',
+          providerId: providerId(data.id),
+          reference:
+            typeof data.transaction === 'object' &&
+            typeof record(data.transaction).reference === 'string'
+              ? String(record(data.transaction).reference)
+              : '',
+        };
+      } catch {
+        throw new BadRequestException('Invalid financial webhook');
       }
     }
     await this.prisma.paystackEvent.createMany({
@@ -80,7 +103,14 @@ export class WebhookService {
     const event = await this.prisma.paystackEvent.findUniqueOrThrow({ where: { id } });
     try {
       // Only this service writes payment, from the authenticated and parsed event above.
-      if (event.eventType.startsWith('transfer.')) {
+      if (event.eventType.startsWith('refund.') || event.eventType.startsWith('charge.dispute.')) {
+        if (!this.financial) throw new Error('Financial processing unavailable');
+        const notice = event.payment as unknown as {
+          kind: 'REFUND' | 'DISPUTE';
+          providerId: string;
+        };
+        await this.financial.processCase(notice.kind, notice.providerId);
+      } else if (event.eventType.startsWith('transfer.')) {
         if (!this.payouts) throw new Error('Payout processing unavailable');
         const payout = await this.payouts.verify(
           event.reference ?? '',

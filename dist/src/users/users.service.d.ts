@@ -48,6 +48,7 @@ export declare class UsersService {
         userId: string;
         balanceMinor: bigint;
         reservedMinor: bigint;
+        outgoingFrozen: boolean;
         currency: string;
     } & {
         balanceMinor: string;

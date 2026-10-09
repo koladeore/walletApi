@@ -222,6 +222,8 @@ export class WalletService {
           });
           if (freshSenderWallet.closedAt || freshReceiver.closedAt)
             throw new ConflictException('Wallet is closed');
+          if (freshSenderWallet.outgoingFrozen)
+            throw new ForbiddenException('Wallet outgoing money is frozen for investigation');
           if (freshSenderWallet.currency !== 'NGN' || freshReceiver.currency !== 'NGN') {
             throw new BadRequestException('Both wallets must use NGN');
           }
@@ -410,6 +412,8 @@ export class WalletService {
       }
       const current = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
       if (current.closedAt) throw new ConflictException('Wallet is closed');
+      if (current.outgoingFrozen)
+        throw new ForbiddenException('Wallet outgoing money is frozen for investigation');
       if (current.currency !== 'NGN')
         throw new BadRequestException('Only NGN wallets are supported');
       if (current.balanceMinor - current.reservedMinor < amountMinor)
