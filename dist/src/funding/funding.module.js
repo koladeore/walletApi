@@ -15,12 +15,13 @@ const confirmation_service_1 = require("./confirmation.service");
 const webhook_service_1 = require("./webhook.service");
 const paystack_controller_1 = require("./paystack.controller");
 const funding_worker_1 = require("./funding.worker");
+const payouts_module_1 = require("../payouts/payouts.module");
 let FundingModule = class FundingModule {
 };
 exports.FundingModule = FundingModule;
 exports.FundingModule = FundingModule = __decorate([
     (0, common_1.Module)({
-        imports: [paystack_module_1.PaystackModule],
+        imports: [paystack_module_1.PaystackModule, payouts_module_1.PayoutsModule],
         providers: [funding_service_1.FundingService, confirmation_service_1.ConfirmationService, webhook_service_1.WebhookService, funding_worker_1.FundingWorker],
         controllers: [funding_controller_1.FundingController, paystack_controller_1.PaystackController],
     })

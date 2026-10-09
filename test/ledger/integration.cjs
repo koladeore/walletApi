@@ -134,7 +134,7 @@ async function main() {
     await reject(`UPDATE wallets SET "reservedMinor"="balanceMinor"+1 WHERE id='bob-wallet'`);
     await reject(`UPDATE withdrawal_reservations SET status='PENDING' WHERE reference='payout-1'`);
     await reject(`DELETE FROM withdrawal_reservations WHERE reference='payout-1'`);
-    await reject('TRUNCATE withdrawal_reservations');
+    await reject('TRUNCATE withdrawal_reservations CASCADE');
     await reject(`INSERT INTO withdrawal_reservations(id,reference,"walletId",currency,"amountMinor","updatedAt") VALUES ('usd','usd','legacy-wallet','NGN',1,now())`);
     await reject(`INSERT INTO withdrawal_reservations(id,reference,"walletId",currency,"amountMinor","updatedAt") VALUES ('large','large','bob-wallet','NGN',99999999,now())`);
     await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;

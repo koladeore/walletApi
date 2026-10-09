@@ -4,6 +4,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,6 +12,9 @@ import { PaystackService } from '../paystack/paystack.service';
 import { parsePayment, record } from '../paystack/payment';
 import type { PaystackPayment } from '../paystack/payment';
 import { ConfirmationService } from './confirmation.service';
+import { parseTransferNotice } from '../paystack/transfer';
+import type { TransferNotice } from '../paystack/transfer';
+import { PayoutsService } from '../payouts/payouts.service';
 
 @Injectable()
 export class WebhookService {
@@ -18,6 +22,7 @@ export class WebhookService {
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackService,
     private readonly confirmation: ConfirmationService,
+    @Optional() private readonly payouts?: PayoutsService,
   ) {}
 
   async receive(raw: Buffer | undefined, signature: string | undefined) {
@@ -34,8 +39,15 @@ export class WebhookService {
       throw new BadRequestException('Webhook event type required');
     const id = createHash('sha256').update(raw).digest('hex');
     // Retain only fields needed for matching; omit card authorizations and other personal data.
-    let payment: PaystackPayment | undefined;
+    let payment: PaystackPayment | TransferNotice | undefined;
     if (body.event === 'charge.success') payment = parsePayment(body.data);
+    if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(body.event)) {
+      try {
+        payment = parseTransferNotice(body.data);
+      } catch {
+        throw new BadRequestException('Invalid transfer webhook');
+      }
+    }
     await this.prisma.paystackEvent.createMany({
       skipDuplicates: true,
       data: [
@@ -68,9 +80,20 @@ export class WebhookService {
     const event = await this.prisma.paystackEvent.findUniqueOrThrow({ where: { id } });
     try {
       // Only this service writes payment, from the authenticated and parsed event above.
-      const payment = event.payment as unknown as PaystackPayment;
-      const request = await this.confirmation.confirm(event.reference ?? '', undefined, payment);
-      if (request.status !== 'SUCCESS') throw new Error('Payment not yet successful');
+      if (event.eventType.startsWith('transfer.')) {
+        if (!this.payouts) throw new Error('Payout processing unavailable');
+        const payout = await this.payouts.verify(
+          event.reference ?? '',
+          undefined,
+          event.payment as unknown as TransferNotice,
+        );
+        if (!['SUCCESS', 'FAILED', 'REVERSED'].includes(payout.status))
+          throw new Error('Transfer outcome pending');
+      } else {
+        const payment = event.payment as unknown as PaystackPayment;
+        const request = await this.confirmation.confirm(event.reference ?? '', undefined, payment);
+        if (request.status !== 'SUCCESS') throw new Error('Payment not yet successful');
+      }
       await this.prisma.paystackEvent.update({
         where: { id },
         data: { status: 'PROCESSED', processedAt: new Date(), lockedUntil: null, lastError: null },

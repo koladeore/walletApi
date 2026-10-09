@@ -6,9 +6,10 @@ import { ConfirmationService } from './confirmation.service';
 import { WebhookService } from './webhook.service';
 import { PaystackController } from './paystack.controller';
 import { FundingWorker } from './funding.worker';
+import { PayoutsModule } from '../payouts/payouts.module';
 
 @Module({
-  imports: [PaystackModule],
+  imports: [PaystackModule, PayoutsModule],
   providers: [FundingService, ConfirmationService, WebhookService, FundingWorker],
   controllers: [FundingController, PaystackController],
 })

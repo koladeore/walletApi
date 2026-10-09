@@ -1,0 +1,80 @@
+import type { Payout } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { PaystackService } from '../paystack/paystack.service';
+import { PayoutProviderService } from '../paystack/payout-provider.service';
+import type { TransferNotice } from '../paystack/transfer';
+export declare function matchesTransfer(payout: Payout, notice: TransferNotice): boolean;
+export declare class PayoutsService {
+    private readonly prisma;
+    private readonly paystack;
+    private readonly provider;
+    constructor(prisma: PrismaService, paystack: PaystackService, provider: PayoutProviderService);
+    response(payout: Payout): {
+        id: string;
+        reference: string;
+        beneficiaryId: string;
+        amount: string;
+        amountMinor: string;
+        currency: string;
+        status: import("@prisma/client").$Enums.PayoutStatus;
+        providerStatus: string | null;
+        uncertain: boolean;
+        lastError: string | null;
+        createdAt: Date;
+    };
+    private find;
+    get(userId: string, reference: string): Promise<{
+        id: string;
+        reference: string;
+        beneficiaryId: string;
+        amount: string;
+        amountMinor: string;
+        currency: string;
+        status: import("@prisma/client").$Enums.PayoutStatus;
+        providerStatus: string | null;
+        uncertain: boolean;
+        lastError: string | null;
+        createdAt: Date;
+    }>;
+    list(userId: string): Promise<{
+        id: string;
+        reference: string;
+        beneficiaryId: string;
+        amount: string;
+        amountMinor: string;
+        currency: string;
+        status: import("@prisma/client").$Enums.PayoutStatus;
+        providerStatus: string | null;
+        uncertain: boolean;
+        lastError: string | null;
+        createdAt: Date;
+    }[]>;
+    create(userId: string, beneficiaryId: string, amount: string, key: string): Promise<{
+        id: string;
+        reference: string;
+        beneficiaryId: string;
+        amount: string;
+        amountMinor: string;
+        currency: string;
+        status: import("@prisma/client").$Enums.PayoutStatus;
+        providerStatus: string | null;
+        uncertain: boolean;
+        lastError: string | null;
+        createdAt: Date;
+    }>;
+    dispatch(reference: string): Promise<void>;
+    verify(reference: string, userId?: string, event?: TransferNotice): Promise<{
+        id: string;
+        reference: string;
+        beneficiaryId: string;
+        amount: string;
+        amountMinor: string;
+        currency: string;
+        status: import("@prisma/client").$Enums.PayoutStatus;
+        providerStatus: string | null;
+        uncertain: boolean;
+        lastError: string | null;
+        createdAt: Date;
+    }>;
+    private apply;
+}

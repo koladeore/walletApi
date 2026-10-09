@@ -10,14 +10,15 @@ exports.PaystackModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const paystack_service_1 = require("./paystack.service");
+const payout_provider_service_1 = require("./payout-provider.service");
 let PaystackModule = class PaystackModule {
 };
 exports.PaystackModule = PaystackModule;
 exports.PaystackModule = PaystackModule = __decorate([
     (0, common_1.Module)({
         imports: [config_1.ConfigModule],
-        providers: [paystack_service_1.PaystackService],
-        exports: [paystack_service_1.PaystackService],
+        providers: [paystack_service_1.PaystackService, payout_provider_service_1.PayoutProviderService],
+        exports: [paystack_service_1.PaystackService, payout_provider_service_1.PayoutProviderService],
     })
 ], PaystackModule);
 //# sourceMappingURL=paystack.module.js.map

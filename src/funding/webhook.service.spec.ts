@@ -67,7 +67,7 @@ describe('Authenticated webhook inbox', () => {
     expect(confirmation.confirm).not.toHaveBeenCalled();
   });
   it('records unrelated events as ignored without crediting', async () => {
-    const other = Buffer.from(JSON.stringify({ event: 'transfer.success', data: {} }));
+    const other = Buffer.from(JSON.stringify({ event: 'subscription.create', data: {} }));
     await service.receive(other, sign(other));
     expect(prisma.paystackEvent.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,6 +86,7 @@ describe('Authenticated webhook inbox', () => {
     prisma.paystackEvent.updateMany.mockResolvedValue({ count: 1 });
     prisma.paystackEvent.findUniqueOrThrow.mockResolvedValue({
       id: 'event',
+      eventType: 'charge.success',
       reference: 'fund-test',
       payment: {},
       attempts: 1,
@@ -104,6 +105,7 @@ describe('Authenticated webhook inbox', () => {
       prisma.paystackEvent.updateMany.mockResolvedValue({ count: 1 });
       prisma.paystackEvent.findUniqueOrThrow.mockResolvedValue({
         id: 'event',
+        eventType: 'charge.success',
         reference: 'fund-test',
         payment: {},
         attempts: 1,

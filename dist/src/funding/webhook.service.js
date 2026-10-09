@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebhookService = void 0;
 const node_crypto_1 = require("node:crypto");
@@ -16,14 +19,18 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const paystack_service_1 = require("../paystack/paystack.service");
 const payment_1 = require("../paystack/payment");
 const confirmation_service_1 = require("./confirmation.service");
+const transfer_1 = require("../paystack/transfer");
+const payouts_service_1 = require("../payouts/payouts.service");
 let WebhookService = class WebhookService {
     prisma;
     paystack;
     confirmation;
-    constructor(prisma, paystack, confirmation) {
+    payouts;
+    constructor(prisma, paystack, confirmation, payouts) {
         this.prisma = prisma;
         this.paystack = paystack;
         this.confirmation = confirmation;
+        this.payouts = payouts;
     }
     async receive(raw, signature) {
         if (!this.paystack.authenticateWebhook(raw, signature))
@@ -43,6 +50,14 @@ let WebhookService = class WebhookService {
         let payment;
         if (body.event === 'charge.success')
             payment = (0, payment_1.parsePayment)(body.data);
+        if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(body.event)) {
+            try {
+                payment = (0, transfer_1.parseTransferNotice)(body.data);
+            }
+            catch {
+                throw new common_1.BadRequestException('Invalid transfer webhook');
+            }
+        }
         await this.prisma.paystackEvent.createMany({
             skipDuplicates: true,
             data: [
@@ -73,10 +88,19 @@ let WebhookService = class WebhookService {
             return;
         const event = await this.prisma.paystackEvent.findUniqueOrThrow({ where: { id } });
         try {
-            const payment = event.payment;
-            const request = await this.confirmation.confirm(event.reference ?? '', undefined, payment);
-            if (request.status !== 'SUCCESS')
-                throw new Error('Payment not yet successful');
+            if (event.eventType.startsWith('transfer.')) {
+                if (!this.payouts)
+                    throw new Error('Payout processing unavailable');
+                const payout = await this.payouts.verify(event.reference ?? '', undefined, event.payment);
+                if (!['SUCCESS', 'FAILED', 'REVERSED'].includes(payout.status))
+                    throw new Error('Transfer outcome pending');
+            }
+            else {
+                const payment = event.payment;
+                const request = await this.confirmation.confirm(event.reference ?? '', undefined, payment);
+                if (request.status !== 'SUCCESS')
+                    throw new Error('Payment not yet successful');
+            }
             await this.prisma.paystackEvent.update({
                 where: { id },
                 data: { status: 'PROCESSED', processedAt: new Date(), lockedUntil: null, lastError: null },
@@ -102,8 +126,10 @@ let WebhookService = class WebhookService {
 exports.WebhookService = WebhookService;
 exports.WebhookService = WebhookService = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, common_1.Optional)()),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         paystack_service_1.PaystackService,
-        confirmation_service_1.ConfirmationService])
+        confirmation_service_1.ConfirmationService,
+        payouts_service_1.PayoutsService])
 ], WebhookService);
 //# sourceMappingURL=webhook.service.js.map

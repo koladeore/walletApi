@@ -25,7 +25,7 @@ Authorize Swagger with your user's access token. All beneficiary endpoints requi
 
 The database retains the full account number for future payouts; it is masked in saved-beneficiary responses and is not logged by this feature. Protect database access and backups. Account-name previews are returned only to the authenticated requester.
 
-Saving does not reserve or debit money, create a transfer recipient at Paystack, or initiate a payout. Provider recipient creation and payout status tracking belong to the next withdrawal step. Full Milestone 4 is not complete yet.
+Saving does not reserve or debit money, create a transfer recipient at Paystack, or initiate a payout. Use the [payout endpoints](payouts.md) to request a withdrawal to a saved beneficiary. Full Milestone 4 is not complete yet.
 
 References: [Paystack account resolution](https://paystack.com/docs/api/verification/) and [supported bank list](https://paystack.com/docs/api/miscellaneous/).
 

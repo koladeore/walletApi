@@ -22,7 +22,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:ledger": "node -r ts-node/register test/ledger/integration.cjs",
     "test:funding": "node -r ts-node/register test/funding/integration.cjs",
-    "test:beneficiaries": "node -r ts-node/register test/beneficiaries/integration.cjs"
+    "test:beneficiaries": "node -r ts-node/register test/beneficiaries/integration.cjs",
+    "test:payouts": "node -r ts-node/register test/payouts/integration.cjs"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

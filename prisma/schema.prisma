@@ -39,6 +39,7 @@ model User {
   auditLogs    AuditLog[]
   fundingRequests FundingRequest[]
   beneficiaries Beneficiary[]
+  payouts Payout[]
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -54,6 +55,7 @@ model Wallet {
   closedAt            DateTime?
   reservations        WithdrawalReservation[]
   fundingRequests     FundingRequest[]
+  payouts             Payout[]
   currency            String        @default("NGN")
   
   userId              String        @unique
@@ -186,6 +188,7 @@ enum ReservationStatus {
 }
 
 model WithdrawalReservation {
+  payout      Payout?
   id          String @id @default(uuid())
   reference   String @unique
   walletId    String
@@ -265,6 +268,7 @@ model PaystackEvent {
 }
 
 model Beneficiary {
+  payouts       Payout[]
   id            String @id @default(uuid())
   userId        String
   user          User @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -281,4 +285,47 @@ model Beneficiary {
   @@unique([userId, bankCode, accountNumber])
   @@index([userId, createdAt])
   @@map("beneficiaries")
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REVERSED
+}
+
+model Payout {
+  id             String @id @default(uuid())
+  reference      String @unique
+  idempotencyKey String
+  userId         String
+  user           User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  walletId       String
+  wallet         Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  beneficiaryId  String
+  beneficiary    Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Restrict)
+  reservationId  String @unique
+  reservation    WithdrawalReservation @relation(fields: [reservationId], references: [id], onDelete: Restrict)
+  amountMinor    BigInt
+  currency       String @default("NGN")
+  providerMode   String @default("test")
+  bankCode       String
+  accountNumber  String
+  accountName    String
+  recipientCode  String?
+  transferCode   String? @unique
+  status         PayoutStatus @default(PENDING)
+  providerStatus String?
+  uncertain      Boolean @default(false)
+  submittedAt    DateTime?
+  lockedUntil    DateTime?
+  nextCheckAt    DateTime @default(now())
+  lastError      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, nextCheckAt])
+  @@map("payouts")
 }
