@@ -74,7 +74,11 @@ let NotificationWorker = NotificationWorker_1 = class NotificationWorker {
                 emailNextAttemptAt: { lte: now },
                 OR: [{ emailLockedUntil: null }, { emailLockedUntil: { lt: now } }],
             },
-            data: { emailLockedUntil: new Date(Date.now() + 60000), emailAttempts: { increment: 1 } },
+            data: {
+                emailLockedUntil: new Date(Date.now() + 60000),
+                emailAttempts: { increment: 1 },
+                emailBatchAttempts: { increment: 1 },
+            },
         });
         if (!claimed.count)
             return;
@@ -82,30 +86,45 @@ let NotificationWorker = NotificationWorker_1 = class NotificationWorker {
             where: { id },
             include: { user: true },
         });
-        if (row.emailAttempts > 5) {
+        if (row.emailBatchAttempts > 5) {
             await this.prisma.notification.update({
                 where: { id },
-                data: { emailStatus: 'FAILED', emailLockedUntil: null },
+                data: {
+                    emailStatus: 'FAILED',
+                    emailLockedUntil: null,
+                    emailLastError: 'ATTEMPTS_EXHAUSTED',
+                },
             });
             return;
         }
-        if (row.createdAt.getTime() < Date.now() - 3600000 ||
-            !row.user.emailVerifiedAt ||
+        if ((row.emailFirstAttemptAt && row.emailFirstAttemptAt.getTime() < Date.now() - 3600000) ||
+            (row.kind !== 'WELCOME' && !row.user.emailVerifiedAt) ||
             !row.user.isActive ||
             row.user.closedAt ||
             (row.emailRecipient && row.emailRecipient !== row.user.email)) {
             await this.prisma.notification.update({
                 where: { id },
-                data: { emailStatus: 'SKIPPED', emailLockedUntil: null },
+                data: {
+                    emailStatus: 'SKIPPED',
+                    emailLockedUntil: null,
+                    emailLastError: row.emailFirstAttemptAt && row.emailFirstAttemptAt.getTime() < Date.now() - 3600000
+                        ? 'EVENT_EXPIRED'
+                        : 'RECIPIENT_INELIGIBLE',
+                },
             });
             return;
         }
         try {
             const recipient = row.emailRecipient ?? row.user.email;
-            if (!row.emailRecipient)
+            const sender = row.emailSender ?? this.config.getOrThrow('AUTH_EMAIL_FROM');
+            if (!row.emailRecipient || !row.emailSender || !row.emailFirstAttemptAt)
                 await this.prisma.notification.update({
                     where: { id },
-                    data: { emailRecipient: recipient },
+                    data: {
+                        emailRecipient: recipient,
+                        emailSender: sender,
+                        emailFirstAttemptAt: row.emailFirstAttemptAt ?? new Date(),
+                    },
                 });
             const response = await fetch('https://api.resend.com/emails', {
                 method: 'POST',
@@ -115,7 +134,7 @@ let NotificationWorker = NotificationWorker_1 = class NotificationWorker {
                     'Idempotency-Key': `notification-${id}`,
                 },
                 body: JSON.stringify({
-                    from: this.config.getOrThrow('AUTH_EMAIL_FROM'),
+                    from: sender,
                     to: [recipient],
                     subject: row.title,
                     text: `${row.body}\n\nOpen your wallet app to view the details.\nNotification ID: ${id}`,
@@ -128,7 +147,11 @@ let NotificationWorker = NotificationWorker_1 = class NotificationWorker {
                 if (permanent) {
                     await this.prisma.notification.update({
                         where: { id },
-                        data: { emailStatus: 'FAILED', emailLockedUntil: null },
+                        data: {
+                            emailStatus: 'FAILED',
+                            emailLockedUntil: null,
+                            emailLastError: `PROVIDER_HTTP_${response.status}`,
+                        },
                     });
                     return;
                 }
@@ -136,16 +159,17 @@ let NotificationWorker = NotificationWorker_1 = class NotificationWorker {
             }
             await this.prisma.notification.update({
                 where: { id },
-                data: { emailStatus: 'SENT', emailLockedUntil: null },
+                data: { emailStatus: 'SENT', emailLockedUntil: null, emailLastError: null },
             });
         }
         catch {
             await this.prisma.notification.update({
                 where: { id },
                 data: {
-                    emailStatus: row.emailAttempts >= 5 ? 'FAILED' : 'PENDING',
+                    emailStatus: row.emailBatchAttempts >= 5 ? 'FAILED' : 'PENDING',
                     emailLockedUntil: null,
-                    emailNextAttemptAt: new Date(Date.now() + 30000 * 2 ** Math.min(row.emailAttempts, 5)),
+                    emailLastError: 'DELIVERY_UNCERTAIN',
+                    emailNextAttemptAt: new Date(Date.now() + 30000 * 2 ** Math.min(row.emailBatchAttempts, 5)),
                 },
             });
         }

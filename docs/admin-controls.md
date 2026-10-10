@@ -27,3 +27,5 @@ Audit records use userId as the actor and metadata for affected records/reasons,
 Manual verification: use a regular user token on each staff route and expect 403. An admin without a step-up proof cannot mutate. An admin with the exact matching proof can perform a valid action and its audit record must identify that admin, target, time and reason. Changing the action body invalidates the proof. Admin reads must create records without including sensitive response contents.
 
 Account-tier changes, manual outgoing freezes and activity-flag resolution are also protected admin mutations. See [account limits](account-limits.md). Open activity flags must be resolved before wallet unfreezing.
+
+Notification-delivery recovery is also ADMIN-only, step-up protected and audited. See [delivery recovery](delivery-recovery.md).

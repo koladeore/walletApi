@@ -514,11 +514,17 @@ model Notification {
   createdAt DateTime @default(now())
   emailStatus String @default("PENDING")
   emailAttempts Int @default(0)
+  emailBatchAttempts Int @default(0)
+  emailRecoveryCount Int @default(0)
+  emailLastError String?
+  emailSender String?
+  emailFirstAttemptAt DateTime?
   emailNextAttemptAt DateTime @default(now())
   emailLockedUntil DateTime?
   emailRecipient String?
   @@index([userId, createdAt])
   @@index([emailStatus, emailNextAttemptAt])
+  @@index([emailStatus, createdAt, id], map: "idx_notifications_delivery_status_date")
   @@map("notifications")
   @@index([userId, createdAt, id], map: "idx_notifications_user_date_id")
   @@index([userId, readAt, createdAt, id], map: "idx_notifications_user_read_date_id")

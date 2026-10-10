@@ -9,7 +9,6 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-import { EmailService } from '../email/email.service';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { walletResponse } from '../common/money/money';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
@@ -28,10 +27,7 @@ type PublicUser = Prisma.UserGetPayload<{ select: typeof userProfileSelect }>;
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private prisma: PrismaService,
-    private emailService: EmailService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async findByEmail(email: string): Promise<User | null> {
     return this.prisma.user.findUnique({
@@ -110,15 +106,18 @@ export class UsersService {
         },
       });
 
+      await tx.notification.create({
+        data: {
+          userId: user.id,
+          eventKey: `welcome:${user.id}`,
+          kind: 'WELCOME',
+          title: 'Welcome to your wallet',
+          body: 'Your account is ready. Verify your email before sending money.',
+          data: {},
+        },
+      });
       return user;
     });
-
-    // Fire off async welcome email without waiting
-    this.emailService
-      .sendWelcomeEmail(createdUser.email, createdUser.firstName || 'User')
-      .catch((err) => {
-        console.error('Failed to queue welcome email', err);
-      });
 
     return createdUser;
   }

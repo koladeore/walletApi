@@ -7,6 +7,8 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationModule = void 0;
+const security_module_1 = require("../security/security.module");
+const delivery_controller_1 = require("./delivery.controller");
 const common_1 = require("@nestjs/common");
 const notification_service_1 = require("./notification.service");
 const notification_controller_1 = require("./notification.controller");
@@ -16,8 +18,9 @@ let NotificationModule = class NotificationModule {
 exports.NotificationModule = NotificationModule;
 exports.NotificationModule = NotificationModule = __decorate([
     (0, common_1.Module)({
+        imports: [security_module_1.SecurityModule],
         providers: [notification_service_1.NotificationService, notification_worker_1.NotificationWorker],
-        controllers: [notification_controller_1.NotificationController],
+        controllers: [notification_controller_1.NotificationController, delivery_controller_1.DeliveryController],
         exports: [notification_service_1.NotificationService],
     })
 ], NotificationModule);

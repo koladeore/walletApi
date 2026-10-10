@@ -106,9 +106,25 @@ const issue = object({
   resolution: nullable(string('Investigation completed')),
 });
 const schemas: Record<string, SchemaObject> = {
+  NotificationDelivery: object({
+    id: uuid(),
+    userId: uuid(),
+    kind: string('WELCOME'),
+    title: string('Welcome to your wallet'),
+    createdAt: date(),
+    emailStatus: enumeration('FAILED', 'SKIPPED', 'PENDING', 'SENT'),
+    emailAttempts: integer(5),
+    emailBatchAttempts: integer(5),
+    emailRecoveryCount: integer(0),
+    emailLastError: nullable(string('PROVIDER_HTTP_403')),
+    emailFirstAttemptAt: date(true),
+    emailNextAttemptAt: date(),
+    emailLockedUntil: date(true),
+  }),
   Notification: object({
     id: uuid(),
     kind: enumeration(
+      'WELCOME',
       'FUNDING_SUCCESS',
       'TRANSFER_SENT',
       'TRANSFER_RECEIVED',
@@ -314,6 +330,9 @@ export function documentFrontendApi(document: OpenAPIObject) {
     'post /auth/security/password/reset': 'Message',
     'post /auth/security/step-up/request': 'SecurityChallenge',
     'post /auth/security/step-up/confirm': 'StepUpProof',
+    'get /admin/notification-deliveries': 'NotificationDeliveryCursorPage',
+    'get /admin/notification-deliveries/{id}': 'NotificationDelivery',
+    'post /admin/notification-deliveries/{id}/retry': 'NotificationDelivery',
     'get /notifications': 'NotificationHistory',
     'get /notifications/unread-count': 'UnreadCount',
     'post /notifications/read-all': 'NotificationsRead',
@@ -379,6 +398,7 @@ export function documentFrontendApi(document: OpenAPIObject) {
     'FinancialCase',
     'ProviderFee',
     'ActivityFlag',
+    'NotificationDelivery',
   ])
     document.components.schemas[`${name}CursorPage`] = paged(name);
   document.components.schemas.TransactionCursorPage = paged('Transaction');

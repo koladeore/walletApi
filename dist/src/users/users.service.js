@@ -47,7 +47,6 @@ const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
-const email_service_1 = require("../email/email.service");
 const money_1 = require("../common/money/money");
 const userProfileSelect = {
     id: true,
@@ -60,10 +59,8 @@ const userProfileSelect = {
 };
 let UsersService = class UsersService {
     prisma;
-    emailService;
-    constructor(prisma, emailService) {
+    constructor(prisma) {
         this.prisma = prisma;
-        this.emailService = emailService;
     }
     async findByEmail(email) {
         return this.prisma.user.findUnique({
@@ -129,12 +126,17 @@ let UsersService = class UsersService {
                     balanceMinor: 0n,
                 },
             });
+            await tx.notification.create({
+                data: {
+                    userId: user.id,
+                    eventKey: `welcome:${user.id}`,
+                    kind: 'WELCOME',
+                    title: 'Welcome to your wallet',
+                    body: 'Your account is ready. Verify your email before sending money.',
+                    data: {},
+                },
+            });
             return user;
-        });
-        this.emailService
-            .sendWelcomeEmail(createdUser.email, createdUser.firstName || 'User')
-            .catch((err) => {
-            console.error('Failed to queue welcome email', err);
         });
         return createdUser;
     }
@@ -239,7 +241,6 @@ let UsersService = class UsersService {
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        email_service_1.EmailService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], UsersService);
 //# sourceMappingURL=users.service.js.map
