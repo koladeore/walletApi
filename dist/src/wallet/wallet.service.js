@@ -17,18 +17,12 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
-const email_service_1 = require("../email/email.service");
-const notification_service_1 = require("../notification/notification.service");
 let WalletService = class WalletService {
     prisma;
-    emailService;
-    notificationService;
     configService;
     limits;
-    constructor(prisma, emailService, notificationService, configService, limits) {
+    constructor(prisma, configService, limits) {
         this.prisma = prisma;
-        this.emailService = emailService;
-        this.notificationService = notificationService;
         this.configService = configService;
         this.limits = limits;
     }
@@ -202,15 +196,6 @@ let WalletService = class WalletService {
             const result = execution.value;
             if (execution.replayed)
                 return result.transactionRecord;
-            this.emailService
-                .sendTransferReceipt(result.senderEmail, (0, money_1.formatMinor)(amountMinor), result.receiverEmail)
-                .catch(console.error);
-            this.emailService
-                .sendTransferReceivedEmail(result.receiverEmail, (0, money_1.formatMinor)(amountMinor), result.senderEmail)
-                .catch(console.error);
-            this.notificationService
-                .notifyTransferReceived(result.receiverId, (0, money_1.formatMinor)(amountMinor), result.senderEmail)
-                .catch(console.error);
             return result.transactionRecord;
         }
         catch (error) {
@@ -404,8 +389,6 @@ exports.WalletService = WalletService;
 exports.WalletService = WalletService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        email_service_1.EmailService,
-        notification_service_1.NotificationService,
         config_1.ConfigService,
         limits_service_1.LimitsService])
 ], WalletService);

@@ -92,6 +92,9 @@ function validateEnvironment(config) {
         errors.push('AUTH_EMAIL_FROM must be an email address');
     if (authDelivery === 'provider' && (!resendKey || !authFrom))
         errors.push('AUTH_DELIVERY_MODE provider requires RESEND_API_KEY and AUTH_EMAIL_FROM');
+    const notificationEmail = text('NOTIFICATION_EMAIL_ENABLED', 'true');
+    if (!['true', 'false'].includes(notificationEmail))
+        errors.push('NOTIFICATION_EMAIL_ENABLED must be true or false');
     const paystackEnabled = text('PAYSTACK_ENABLED', 'false');
     if (!['true', 'false'].includes(paystackEnabled))
         errors.push('PAYSTACK_ENABLED must be true or false');
@@ -118,6 +121,7 @@ function validateEnvironment(config) {
         JWT_EXPIRES_IN: accessTtl,
         REFRESH_EXPIRES_IN: refreshTtl,
         ENABLE_SIMULATED_FUNDING: simulation,
+        NOTIFICATION_EMAIL_ENABLED: notificationEmail,
         PAYSTACK_ENABLED: paystackEnabled,
         PAYSTACK_SECRET_KEY: paystackKey,
         AUTH_DELIVERY_MODE: authDelivery,

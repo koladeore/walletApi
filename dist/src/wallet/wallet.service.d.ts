@@ -3,15 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto';
-import { EmailService } from '../email/email.service';
-import { NotificationService } from '../notification/notification.service';
 export declare class WalletService {
     private readonly prisma;
-    private readonly emailService;
-    private readonly notificationService;
     private readonly configService;
     private readonly limits;
-    constructor(prisma: PrismaService, emailService: EmailService, notificationService: NotificationService, configService: ConfigService, limits: LimitsService);
+    constructor(prisma: PrismaService, configService: ConfigService, limits: LimitsService);
     private validateKey;
     private idempotent;
     fundWallet(userId: string, amount: string, idempotencyKey: string): Promise<{

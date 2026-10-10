@@ -95,6 +95,31 @@ const issue = object({
     resolution: nullable(string('Investigation completed')),
 });
 const schemas = {
+    Notification: object({
+        id: uuid(),
+        kind: enumeration('FUNDING_SUCCESS', 'TRANSFER_SENT', 'TRANSFER_RECEIVED', 'PAYOUT_SUCCESS', 'PAYOUT_FAILED', 'PAYOUT_REVERSED', 'WALLET_FROZEN', 'WALLET_UNFROZEN'),
+        title: string('Funding confirmed'),
+        body: string('Your payment was confirmed and your wallet credited.'),
+        data: {
+            type: 'object',
+            additionalProperties: true,
+            description: 'Navigation reference, transactionId or walletId; monetary amountMinor is a string when present.',
+        },
+        readAt: date(true),
+        createdAt: date(),
+    }),
+    NotificationPage: object({
+        data: array(ref('Notification')),
+        meta: object({
+            page: integer(),
+            pageSize: integer(20),
+            total: integer(20),
+            totalPages: integer(),
+        }),
+        unreadCount: integer(3),
+    }),
+    UnreadCount: object({ unreadCount: integer(3) }),
+    NotificationsRead: object({ updated: integer(3) }),
     AccountLimits: object({
         tier: enumeration('BASIC', 'VERIFIED'),
         emailVerified: bool(true),
@@ -261,6 +286,10 @@ function documentFrontendApi(document) {
         'post /auth/security/password/reset': 'Message',
         'post /auth/security/step-up/request': 'SecurityChallenge',
         'post /auth/security/step-up/confirm': 'StepUpProof',
+        'get /notifications': 'NotificationPage',
+        'get /notifications/unread-count': 'UnreadCount',
+        'post /notifications/read-all': 'NotificationsRead',
+        'post /notifications/{id}/read': 'Notification',
         'get /wallet/limits': 'AccountLimits',
         'post /admin/account-controls/users/{id}/tier': 'TierChanged',
         'post /admin/account-controls/users/{id}/freeze': 'AccountFrozen',

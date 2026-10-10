@@ -1,12 +1,6 @@
 import { LimitsService } from '../limits/limits.service';
 import { createHash } from 'node:crypto';
-import {
-  MAX_MINOR,
-  parseNaira,
-  formatMinor,
-  walletResponse,
-  transactionResponse,
-} from '../common/money/money';
+import { MAX_MINOR, parseNaira, walletResponse, transactionResponse } from '../common/money/money';
 import {
   Injectable,
   BadRequestException,
@@ -18,8 +12,6 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { TransactionHistoryQueryDto } from './dto/transaction-history-query.dto';
-import { EmailService } from '../email/email.service';
-import { NotificationService } from '../notification/notification.service';
 
 // Persist the HTTP representation: dates become ISO strings, monetary values are
 // already strings. This makes first responses and replay responses identical.
@@ -29,8 +21,6 @@ type Wire<T> = T extends Date ? string : T extends object ? { [K in keyof T]: Wi
 export class WalletService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly emailService: EmailService,
-    private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
     private readonly limits: LimitsService,
   ) {}
@@ -287,21 +277,7 @@ export class WalletService {
       const result = execution.value;
       if (execution.replayed) return result.transactionRecord;
 
-      // Fire off background jobs
-      this.emailService
-        .sendTransferReceipt(result.senderEmail, formatMinor(amountMinor), result.receiverEmail)
-        .catch(console.error);
-      this.emailService
-        .sendTransferReceivedEmail(
-          result.receiverEmail,
-          formatMinor(amountMinor),
-          result.senderEmail,
-        )
-        .catch(console.error);
-      this.notificationService
-        .notifyTransferReceived(result.receiverId, formatMinor(amountMinor), result.senderEmail)
-        .catch(console.error);
-
+      // Transactional database triggers persist notifications before commit.
       return result.transactionRecord;
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
