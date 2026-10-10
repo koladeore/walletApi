@@ -1,3 +1,4 @@
+import { CursorQueryDto, cursorBounds, cursorPage } from '../common/pagination/cursor';
 import {
   BadRequestException,
   ForbiddenException,
@@ -83,13 +84,16 @@ export class BeneficiariesService {
     });
     return this.response(saved);
   }
-  async list(userId: string) {
+  async list(userId: string, query: CursorQueryDto = new CursorQueryDto()) {
+    const scope = `beneficiaries:${userId}`;
     const rows = await this.prisma.beneficiary.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+      where: { AND: [{ userId }, cursorBounds(query.cursor, scope)] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
     });
-    return rows.map((row) => this.response(row));
+    return cursorPage(rows, query.limit, scope, 'createdAt', (row) => this.response(row));
   }
+
   async get(userId: string, id: string) {
     const row = await this.prisma.beneficiary.findFirst({ where: { userId, id } });
     if (!row) throw new NotFoundException('Beneficiary not found');

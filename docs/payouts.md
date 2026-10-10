@@ -22,7 +22,7 @@ Use the existing Paystack test secret and enable the integration. All customer p
    { "beneficiaryId": "YOUR_BENEFICIARY_UUID", "amount": "100.00" }
    ```
 
-4. Copy the server-generated `payout-...` reference. Read the result with `GET /api/v1/wallet/payouts/{reference}`. `GET /api/v1/wallet/payouts` lists your latest 100 records.
+4. Copy the server-generated `payout-...` reference. Read the result with `GET /api/v1/wallet/payouts/{reference}`. `GET /api/v1/wallet/payouts` returns a cursor-paginated `{ data, meta }` response.
 5. The amount is reserved before Paystack is contacted. While pending or processing, total balance stays the same, reserved balance increases, and available balance decreases. Paystack may complete a test transfer immediately, so you may see the final balance before observing its reserved state.
 6. Once verified successful, `status` is `SUCCESS`: reserved balance decreases and total balance is debited once. Paystack test transfers do not send real money to the beneficiary's bank.
 7. Repeat the POST with the same key and body. It returns the same reference without reserving funds or submitting a completed/uncertain transfer again. A changed amount or beneficiary with the same key returns 409.
@@ -61,3 +61,5 @@ This step covers reservations, recipient creation, payout submission, outcome ch
 `npm run test:payouts` runs PostgreSQL balance-safety tests against a migrated disposable `LEDGER_TEST_DATABASE_URL` database named `wallet_ledger_test*`. Provider responses are mocked to force success, failure, reversal, mismatches, and timeouts. Never run database integration tests against the application database.
 
 References: [Paystack transfers](https://paystack.com/docs/api/transfer/) and [transfer recipients](https://paystack.com/docs/api/transfer-recipient/).
+
+See [pagination](pagination.md) for page limits, cursor parameters and frontend response changes.

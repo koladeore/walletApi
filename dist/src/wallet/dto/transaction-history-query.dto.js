@@ -17,27 +17,57 @@ const client_1 = require("@prisma/client");
 class TransactionHistoryQueryDto {
     page = 1;
     limit = 10;
+    mode;
+    cursor;
     type;
     startDate;
     endDate;
 }
 exports.TransactionHistoryQueryDto = TransactionHistoryQueryDto;
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Page number', default: 1 }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Legacy page number (maximum 1000). Use cursor mode for deep history',
+        default: 1,
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(1000),
     __metadata("design:type", Number)
 ], TransactionHistoryQueryDto.prototype, "page", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Number of records per page', default: 10 }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Number of records per page (maximum 100)',
+        maximum: 100,
+        default: 10,
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(100),
     __metadata("design:type", Number)
 ], TransactionHistoryQueryDto.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: ['page', 'cursor'],
+        default: 'page',
+        description: 'Cursor mode avoids deep offset/count queries; response meta contains nextCursor and hasMore.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)({ page: 'page', cursor: 'cursor' }),
+    __metadata("design:type", String)
+], TransactionHistoryQueryDto.prototype, "mode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'nextCursor from the previous cursor-mode response. Preserve filters.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2048),
+    __metadata("design:type", String)
+], TransactionHistoryQueryDto.prototype, "cursor", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Filter by transaction type', enum: client_1.TransactionType }),
     (0, class_validator_1.IsOptional)(),

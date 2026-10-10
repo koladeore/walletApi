@@ -1,3 +1,4 @@
+import { cursorBounds, cursorPage } from '../common/pagination/cursor';
 import { LimitsService } from '../limits/limits.service';
 import { createHash } from 'node:crypto';
 import { MAX_MINOR, parseNaira, walletResponse, transactionResponse } from '../common/money/money';
@@ -445,6 +446,21 @@ export class WalletService {
    */
   async getTransactionHistory(userId: string, query: TransactionHistoryQueryDto) {
     const { page = 1, limit = 10, type, startDate, endDate } = query;
+    if (
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      !Number.isInteger(page) ||
+      page < 1 ||
+      page > 1000
+    )
+      throw new BadRequestException('Invalid page or limit');
+    if (startDate && endDate && new Date(startDate) > new Date(endDate))
+      throw new BadRequestException('startDate must not exceed endDate');
+    if (query.cursor && query.mode !== 'cursor')
+      throw new BadRequestException('cursor requires mode=cursor');
+    if (query.mode === 'cursor' && page !== 1)
+      throw new BadRequestException('Cursor mode cannot be combined with page');
     const skip = (page - 1) * limit;
 
     // Find the user's wallet first
@@ -475,13 +491,28 @@ export class WalletService {
       }
     }
 
+    if (query.mode === 'cursor') {
+      const scope = JSON.stringify([
+        'transactions',
+        wallet.id,
+        type ?? null,
+        startDate ?? null,
+        endDate ?? null,
+      ]);
+      const rows = await this.prisma.transaction.findMany({
+        where: { AND: [where, cursorBounds(query.cursor, scope)] },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+      });
+      return cursorPage(rows, limit, scope, 'createdAt', transactionResponse);
+    }
     // Execute query and count in parallel
     const [transactions, totalItems] = await Promise.all([
       this.prisma.transaction.findMany({
         where,
         take: limit,
         skip,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.transaction.count({ where }),
     ]);

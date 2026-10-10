@@ -1,8 +1,10 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import { FinancialReasonDto } from '../common/dto/financial-reason.dto';
 import {
   Controller,
   UseInterceptors,
   Get,
+  Query,
   UseGuards,
   Req,
   NotFoundException,
@@ -37,8 +39,8 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Administrator access required.' })
   @ApiResponse({ status: 200, description: 'User profiles retrieved successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  async getAllUsers() {
-    return this.usersService.getAllUsers();
+  async getAllUsers(@Query() query: CursorQueryDto) {
+    return this.usersService.getAllUsers(query);
   }
 
   @Get('profile')

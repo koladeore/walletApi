@@ -13,22 +13,30 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationController = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const notification_service_1 = require("./notification.service");
-class NotificationQuery {
+class NotificationQuery extends cursor_1.CursorQueryDto {
+    mode;
     page = 1;
     unreadOnly;
 }
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ default: 1, minimum: 1, maximum: 10000 }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: ['page', 'cursor'], default: 'page' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['page', 'cursor']),
+    __metadata("design:type", String)
+], NotificationQuery.prototype, "mode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ default: 1, minimum: 1, maximum: 1000 }),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
-    (0, class_validator_1.Max)(10000),
+    (0, class_validator_1.Max)(1000),
     __metadata("design:type", Object)
 ], NotificationQuery.prototype, "page", void 0);
 __decorate([
@@ -43,7 +51,7 @@ let NotificationController = class NotificationController {
         this.notifications = notifications;
     }
     list(req, query) {
-        return this.notifications.list(req.user.id, query.page, query.unreadOnly === 'true');
+        return this.notifications.list(req.user.id, query.page, query.unreadOnly === 'true', query);
     }
     count(req) {
         return this.notifications.unreadCount(req.user.id);
@@ -60,7 +68,7 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({
         summary: 'List your persisted notifications, newest first',
-        description: '20 per page. data contains navigation IDs and money in minor-unit strings. Render title/body as plain text. These are informational; read wallet/payment endpoints for authoritative state.',
+        description: 'Legacy mode uses 20 per page; mode=cursor supports limit (max 100) and nextCursor. data contains navigation IDs and money in minor-unit strings. Render title/body as plain text. These are informational; read wallet/payment endpoints for authoritative state.',
     }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)()),

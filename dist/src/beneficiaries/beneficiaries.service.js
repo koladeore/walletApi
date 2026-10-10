@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BeneficiariesService = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const paystack_service_1 = require("../paystack/paystack.service");
@@ -83,12 +84,14 @@ let BeneficiariesService = class BeneficiariesService {
         });
         return this.response(saved);
     }
-    async list(userId) {
+    async list(userId, query = new cursor_1.CursorQueryDto()) {
+        const scope = `beneficiaries:${userId}`;
         const rows = await this.prisma.beneficiary.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
+            where: { AND: [{ userId }, (0, cursor_1.cursorBounds)(query.cursor, scope)] },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
         });
-        return rows.map((row) => this.response(row));
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope, 'createdAt', (row) => this.response(row));
     }
     async get(userId, id) {
         const row = await this.prisma.beneficiary.findFirst({ where: { userId, id } });

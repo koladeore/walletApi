@@ -1,8 +1,10 @@
+import { CursorQueryDto, cursorBounds, cursorPage } from '../common/pagination/cursor';
 import {
   Body,
   Controller,
   ForbiddenException,
   Get,
+  Query,
   HttpCode,
   Param,
   ParseUUIDPipe,
@@ -116,16 +118,18 @@ export class AdminLimitsController {
   }
   @Get('flags')
   @ApiOperation({
-    summary: 'List latest 100 open suspicious-activity flags',
+    summary: 'List open suspicious-activity flags with cursor pagination',
     description:
       'Flags require investigation; they do not automatically declare fraud or freeze money.',
   })
-  flags() {
-    return this.prisma.activityFlag.findMany({
-      where: { status: 'OPEN' },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+  async flags(@Query() query: CursorQueryDto) {
+    const scope = 'activity-flags:open';
+    const rows = await this.prisma.activityFlag.findMany({
+      where: { AND: [{ status: 'OPEN' }, cursorBounds(query.cursor, scope)] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
     });
+    return cursorPage(rows, query.limit, scope);
   }
   @Post('flags/:id/resolve')
   @HttpCode(200)

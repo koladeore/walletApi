@@ -19,10 +19,12 @@ Admin endpoints (bearer ADMIN plus exact ADMIN step-up proof and a reason):
 
 - POST /api/v1/admin/account-controls/users/{id}/tier with `{ "tier": "VERIFIED", "reason": "Manual account review approved" }`.
 - POST /api/v1/admin/account-controls/users/{id}/freeze with `{ "reason": "Investigate unusual outgoing activity" }`. id is the USER id. Freezes outgoing transfers and new payouts; funds are retained.
-- GET /api/v1/admin/account-controls/flags lists latest 100 open flags, audited; no step-up needed for reading.
+- GET /api/v1/admin/account-controls/flags lists cursor-paginated open flags, audited; no step-up needed for reading.
 - POST /api/v1/admin/account-controls/flags/{id}/resolve with a reason records the investigation; it does not unfreeze.
 - Existing POST /api/v1/admin/financial-operations/wallets/{id}/unfreeze uses the WALLET id. Resolve activity flags, financial disputes and reconciliation issues first. Requires its existing reason and exact ADMIN proof.
 
 Every admin change records actor, target, timestamp and reason. Tier updates serialize with outgoing authorization. Freeze updates serialize with wallet mutations. The system does not cancel a payout already sent to Paystack; its outcome must still be reconciled.
 
 Manual checks: read limits; attempt one amount above the transaction maximum and expect 400 with no balance/usage change. Send two allowed amounts whose total exceeds the daily limit; the exceeding request must fail. Retry a committed request with its original idempotency key and fresh proof: usage must stay unchanged. Verify concurrent requests cannot exceed the daily cap. Make five small outgoing requests to produce a flag. Freeze using an admin, then verify new transfers/payouts fail with 403 while incoming credits still work. Resolve flags and unfreeze after investigation. Regular users cannot access admin endpoints.
+
+See [pagination](pagination.md) for page limits, cursor parameters and frontend response changes.

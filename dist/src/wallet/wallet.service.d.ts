@@ -12,9 +12,9 @@ export declare class WalletService {
     private idempotent;
     fundWallet(userId: string, amount: string, idempotencyKey: string): Promise<{
         wallet: {
+            createdAt: string;
             id: string;
             closedAt: string | null;
-            createdAt: string;
             updatedAt: string;
             userId: string;
             balanceMinor: never;
@@ -28,8 +28,8 @@ export declare class WalletService {
         };
         transaction: {
             type: import("@prisma/client").$Enums.TransactionType;
-            id: string;
             createdAt: string;
+            id: string;
             updatedAt: string;
             currency: string;
             metadata: string | number | boolean | {
@@ -220,8 +220,8 @@ export declare class WalletService {
     }>;
     transferFunds(senderId: string, receiverEmail: string, amount: string, idempotencyKey: string, expectedAuthVersion?: number): Promise<{
         type: import("@prisma/client").$Enums.TransactionType;
-        id: string;
         createdAt: string;
+        id: string;
         updatedAt: string;
         currency: string;
         metadata: string | number | boolean | {
@@ -411,8 +411,8 @@ export declare class WalletService {
     }>;
     reverseTransaction(actorId: string, transactionId: string, reason: string, key: string, expectedAuthVersion?: number): Promise<{
         type: import("@prisma/client").$Enums.TransactionType;
-        id: string;
         createdAt: string;
+        id: string;
         updatedAt: string;
         currency: string;
         metadata: string | number | boolean | {
@@ -601,8 +601,8 @@ export declare class WalletService {
         amount: string;
     }>;
     reserveWithdrawal(userId: string, amount: string, reference: string): Promise<{
-        id: string;
         createdAt: Date;
+        id: string;
         updatedAt: Date;
         currency: string;
         status: import("@prisma/client").$Enums.ReservationStatus;
@@ -614,8 +614,8 @@ export declare class WalletService {
         amount: string;
     }>;
     resolveWithdrawal(reference: string, outcome: 'CAPTURED' | 'RELEASED'): Promise<{
-        id: string;
         createdAt: Date;
+        id: string;
         updatedAt: Date;
         currency: string;
         status: import("@prisma/client").$Enums.ReservationStatus;
@@ -629,8 +629,31 @@ export declare class WalletService {
     getTransactionHistory(userId: string, query: TransactionHistoryQueryDto): Promise<{
         data: ({
             type: import("@prisma/client").$Enums.TransactionType;
-            id: string;
             createdAt: Date;
+            id: string;
+            updatedAt: Date;
+            currency: string;
+            metadata: Prisma.JsonValue | null;
+            status: import("@prisma/client").$Enums.TransactionStatus;
+            amountMinor: bigint;
+            senderWalletId: string | null;
+            reversalOfId: string | null;
+            referenceId: string;
+            receiverWalletId: string | null;
+        } & {
+            amountMinor: string;
+            amount: string;
+        })[];
+        meta: {
+            limit: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+        };
+    } | {
+        data: ({
+            type: import("@prisma/client").$Enums.TransactionType;
+            createdAt: Date;
+            id: string;
             updatedAt: Date;
             currency: string;
             metadata: Prisma.JsonValue | null;

@@ -1,9 +1,11 @@
+import { CursorQueryDto, cursorBounds, cursorPage } from '../common/pagination/cursor';
 import {
   Body,
   ConflictException,
   ForbiddenException,
   Controller,
   Get,
+  Query,
   Param,
   Post,
   Req,
@@ -127,26 +129,39 @@ export class OperationsController {
     });
     return run;
   }
+
   @Get('runs')
-  @ApiOperation({ summary: 'Read latest 100 reconciliation runs' })
-  runs() {
-    return this.prisma.reconciliationRun.findMany({ orderBy: { startedAt: 'desc' }, take: 100 });
+  @ApiOperation({ summary: 'List reconciliation runs with cursor pagination' })
+  async runs(@Query() query: CursorQueryDto) {
+    const scope = 'reconciliation-runs';
+    const rows = await this.prisma.reconciliationRun.findMany({
+      where: cursorBounds(query.cursor, scope, 'startedAt'),
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return cursorPage(rows, query.limit, scope, 'startedAt');
   }
   @Get('issues')
-  @ApiOperation({ summary: 'Read latest 100 unresolved reconciliation issues' })
-  issues() {
-    return this.prisma.reconciliationIssue.findMany({
-      where: { status: 'OPEN' },
-      orderBy: { lastSeenAt: 'desc' },
-      take: 100,
+  @ApiOperation({ summary: 'List unresolved reconciliation issues with cursor pagination' })
+  async issues(@Query() query: CursorQueryDto) {
+    const scope = 'reconciliation-issues:open';
+    const rows = await this.prisma.reconciliationIssue.findMany({
+      where: { AND: [{ status: 'OPEN' }, cursorBounds(query.cursor, scope, 'firstSeenAt')] },
+      orderBy: [{ firstSeenAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
     });
+    return cursorPage(rows, query.limit, scope, 'firstSeenAt');
   }
   @Get('cases')
-  @ApiOperation({ summary: 'Read latest financial cases and recovery shortfalls' })
-  async cases() {
-    return (
-      await this.prisma.financialCase.findMany({ orderBy: { updatedAt: 'desc' }, take: 100 })
-    ).map((row) => ({
+  @ApiOperation({ summary: 'List financial cases by creation date with cursor pagination' })
+  async cases(@Query() query: CursorQueryDto) {
+    const scope = 'financial-cases';
+    const rows = await this.prisma.financialCase.findMany({
+      where: cursorBounds(query.cursor, scope),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return cursorPage(rows, query.limit, scope, 'createdAt', (row) => ({
       ...row,
       amountMinor: row.amountMinor.toString(),
       recoveredMinor: row.recoveredMinor.toString(),
@@ -154,11 +169,18 @@ export class OperationsController {
     }));
   }
   @Get('fees')
-  @ApiOperation({ summary: 'Read latest 100 verified business-borne provider fees' })
-  async fees() {
-    return (
-      await this.prisma.providerFee.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })
-    ).map((row) => ({ ...row, amountMinor: row.amountMinor.toString() }));
+  @ApiOperation({ summary: 'List provider fees with cursor pagination' })
+  async fees(@Query() query: CursorQueryDto) {
+    const scope = 'provider-fees';
+    const rows = await this.prisma.providerFee.findMany({
+      where: cursorBounds(query.cursor, scope),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return cursorPage(rows, query.limit, scope, 'createdAt', (row) => ({
+      ...row,
+      amountMinor: row.amountMinor.toString(),
+    }));
   }
   @Post('issues/:id/resolve')
   @SensitiveAction('ADMIN')

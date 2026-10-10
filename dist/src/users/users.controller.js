@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const financial_reason_dto_1 = require("../common/dto/financial-reason.dto");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
@@ -28,8 +29,8 @@ let UsersController = class UsersController {
     constructor(usersService) {
         this.usersService = usersService;
     }
-    async getAllUsers() {
-        return this.usersService.getAllUsers();
+    async getAllUsers(query) {
+        return this.usersService.getAllUsers(query);
     }
     async getProfile(req) {
         const user = await this.usersService.getProfile(req.user.id);
@@ -74,8 +75,9 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Administrator access required.' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User profiles retrieved successfully.' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized.' }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [cursor_1.CursorQueryDto]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getAllUsers", null);
 __decorate([

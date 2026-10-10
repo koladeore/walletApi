@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayoutsController = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
@@ -27,8 +28,8 @@ let PayoutsController = class PayoutsController {
     create(req, dto, key) {
         return this.payouts.create(req.user.id, dto.beneficiaryId, dto.amount, key, req.stepUpAuthVersion);
     }
-    list(req) {
-        return this.payouts.list(req.user.id);
+    list(req, query) {
+        return this.payouts.list(req.user.id, query);
     }
     get(req, reference) {
         return this.payouts.get(req.user.id, reference);
@@ -52,10 +53,11 @@ __decorate([
 ], PayoutsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'List your latest 100 payouts' }),
+    (0, swagger_1.ApiOperation)({ summary: 'List your payouts with cursor pagination' }),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, cursor_1.CursorQueryDto]),
     __metadata("design:returntype", void 0)
 ], PayoutsController.prototype, "list", null);
 __decorate([

@@ -1,3 +1,4 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import {
   Controller,
   Get,
@@ -15,12 +16,16 @@ import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { NotificationService } from './notification.service';
-class NotificationQuery {
-  @ApiPropertyOptional({ default: 1, minimum: 1, maximum: 10000 })
+class NotificationQuery extends CursorQueryDto {
+  @ApiPropertyOptional({ enum: ['page', 'cursor'], default: 'page' })
+  @IsOptional()
+  @IsIn(['page', 'cursor'])
+  mode?: 'page' | 'cursor';
+  @ApiPropertyOptional({ default: 1, minimum: 1, maximum: 1000 })
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(10000)
+  @Max(1000)
   page = 1;
   @ApiPropertyOptional({ enum: ['true', 'false'], default: 'false' })
   @IsOptional()
@@ -37,10 +42,10 @@ export class NotificationController {
   @ApiOperation({
     summary: 'List your persisted notifications, newest first',
     description:
-      '20 per page. data contains navigation IDs and money in minor-unit strings. Render title/body as plain text. These are informational; read wallet/payment endpoints for authoritative state.',
+      'Legacy mode uses 20 per page; mode=cursor supports limit (max 100) and nextCursor. data contains navigation IDs and money in minor-unit strings. Render title/body as plain text. These are informational; read wallet/payment endpoints for authoritative state.',
   })
   list(@Req() req: AuthenticatedRequest, @Query() query: NotificationQuery) {
-    return this.notifications.list(req.user.id, query.page, query.unreadOnly === 'true');
+    return this.notifications.list(req.user.id, query.page, query.unreadOnly === 'true', query);
   }
   @Get('unread-count')
   @ApiOperation({ summary: 'Read your unread notification count' })

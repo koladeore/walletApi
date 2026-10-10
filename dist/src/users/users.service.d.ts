@@ -1,3 +1,4 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma, User } from '@prisma/client';
 import { EmailService } from '../email/email.service';
@@ -22,28 +23,35 @@ export declare class UsersService {
     findByEmail(email: string): Promise<User | null>;
     findById(id: string): Promise<User | null>;
     getProfile(id: string): Promise<{
+        createdAt: Date;
+        id: string;
         email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
-        id: string;
         role: import("@prisma/client").$Enums.Role;
-        createdAt: Date;
         updatedAt: Date;
     } | null>;
-    getAllUsers(): Promise<{
-        email: string;
-        firstName: string | null;
-        lastName: string | null;
-        isActive: boolean;
-        id: string;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    getAllUsers(query?: CursorQueryDto): Promise<{
+        data: {
+            createdAt: Date;
+            id: string;
+            email: string;
+            firstName: string | null;
+            lastName: string | null;
+            isActive: boolean;
+            updatedAt: Date;
+        }[];
+        meta: {
+            limit: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+        };
+    }>;
     getWallet(userId: string): Promise<({
+        createdAt: Date;
         id: string;
         closedAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
         userId: string;
         balanceMinor: bigint;
@@ -59,23 +67,23 @@ export declare class UsersService {
         availableBalance: string;
     }) | null>;
     lookupRecipient(email: string): Promise<{
+        id: string;
         firstName: string | null;
         lastName: string | null;
-        id: string;
     } | null>;
     create(data: RegisterDto): Promise<PublicUser>;
     closeAccount(actorId: string, userId: string, reason: string, expectedAuthVersion?: number): Promise<{
-        isActive: boolean;
         id: string;
+        isActive: boolean;
         closedAt: Date | null;
     }>;
     updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto, expectedAuthVersion?: number): Promise<{
+        createdAt: Date;
+        id: string;
         email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
-        id: string;
-        createdAt: Date;
         updatedAt: Date;
     }>;
 }

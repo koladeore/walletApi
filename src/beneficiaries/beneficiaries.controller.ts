@@ -1,3 +1,4 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import {
   Body,
   Controller,
@@ -42,8 +43,8 @@ export class BeneficiariesController {
   }
   @Get()
   @ApiOperation({ summary: 'List your beneficiaries with masked account numbers' })
-  list(@Req() req: AuthenticatedRequest) {
-    return this.beneficiaries.list(req.user.id);
+  list(@Req() req: AuthenticatedRequest, @Query() query: CursorQueryDto) {
+    return this.beneficiaries.list(req.user.id, query);
   }
   @Get(':id')
   @ApiOperation({ summary: 'Read one of your beneficiaries' })

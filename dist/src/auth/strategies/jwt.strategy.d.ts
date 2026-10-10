@@ -17,12 +17,13 @@ export declare class JwtStrategy extends JwtStrategy_base {
         kind?: string;
     }): Promise<{
         sessionId: string;
+        createdAt: Date;
+        id: string;
         email: string;
         password: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
-        id: string;
         emailVerifiedAt: Date | null;
         phone: string | null;
         phoneVerifiedAt: Date | null;
@@ -30,7 +31,6 @@ export declare class JwtStrategy extends JwtStrategy_base {
         accountTier: string;
         authVersion: number;
         closedAt: Date | null;
-        createdAt: Date;
         updatedAt: Date;
     }>;
 }

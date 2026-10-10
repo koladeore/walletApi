@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BeneficiariesController = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
@@ -34,8 +35,8 @@ let BeneficiariesController = class BeneficiariesController {
     create(req, dto) {
         return this.beneficiaries.create(req.user.id, dto, req.stepUpAuthVersion);
     }
-    list(req) {
-        return this.beneficiaries.list(req.user.id);
+    list(req, query) {
+        return this.beneficiaries.list(req.user.id, query);
     }
     get(req, id) {
         return this.beneficiaries.get(req.user.id, id);
@@ -75,8 +76,9 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'List your beneficiaries with masked account numbers' }),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, cursor_1.CursorQueryDto]),
     __metadata("design:returntype", void 0)
 ], BeneficiariesController.prototype, "list", null);
 __decorate([

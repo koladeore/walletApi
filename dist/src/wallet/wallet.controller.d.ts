@@ -9,9 +9,9 @@ export declare class WalletController {
     constructor(walletService: WalletService);
     fundWallet(req: AuthenticatedRequest, dto: FundWalletDto, idempotencyKey: string): Promise<{
         wallet: {
+            createdAt: string;
             id: string;
             closedAt: string | null;
-            createdAt: string;
             updatedAt: string;
             userId: string;
             balanceMinor: never;
@@ -25,8 +25,8 @@ export declare class WalletController {
         };
         transaction: {
             type: import("@prisma/client").$Enums.TransactionType;
-            id: string;
             createdAt: string;
+            id: string;
             updatedAt: string;
             currency: string;
             metadata: string | number | boolean | {
@@ -217,8 +217,8 @@ export declare class WalletController {
     }>;
     transfer(req: AuthenticatedRequest, dto: TransferDto, idempotencyKey: string): Promise<{
         type: import("@prisma/client").$Enums.TransactionType;
-        id: string;
         createdAt: string;
+        id: string;
         updatedAt: string;
         currency: string;
         metadata: string | number | boolean | {
@@ -408,8 +408,8 @@ export declare class WalletController {
     }>;
     reverseTransaction(req: AuthenticatedRequest, id: string, dto: FinancialReasonDto, key: string): Promise<{
         type: import("@prisma/client").$Enums.TransactionType;
-        id: string;
         createdAt: string;
+        id: string;
         updatedAt: string;
         currency: string;
         metadata: string | number | boolean | {
@@ -600,8 +600,31 @@ export declare class WalletController {
     getTransactions(req: AuthenticatedRequest, query: TransactionHistoryQueryDto): Promise<{
         data: ({
             type: import("@prisma/client").$Enums.TransactionType;
-            id: string;
             createdAt: Date;
+            id: string;
+            updatedAt: Date;
+            currency: string;
+            metadata: import("@prisma/client/runtime/client").JsonValue | null;
+            status: import("@prisma/client").$Enums.TransactionStatus;
+            amountMinor: bigint;
+            senderWalletId: string | null;
+            reversalOfId: string | null;
+            referenceId: string;
+            receiverWalletId: string | null;
+        } & {
+            amountMinor: string;
+            amount: string;
+        })[];
+        meta: {
+            limit: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+        };
+    } | {
+        data: ({
+            type: import("@prisma/client").$Enums.TransactionType;
+            createdAt: Date;
+            id: string;
             updatedAt: Date;
             currency: string;
             metadata: import("@prisma/client/runtime/client").JsonValue | null;

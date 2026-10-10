@@ -1,3 +1,4 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { FinancialReasonDto } from '../common/dto/financial-reason.dto';
@@ -42,20 +43,27 @@ export declare class AdminLimitsController {
         outgoingFrozen: boolean;
         tier?: undefined;
     }>;
-    flags(): import("@prisma/client").Prisma.PrismaPromise<{
-        id: string;
-        createdAt: Date;
-        userId: string;
-        kind: string;
-        status: string;
-        details: import("@prisma/client/runtime/client").JsonValue;
-        key: string;
-        resolvedAt: Date | null;
-        resolution: string | null;
-    }[]>;
+    flags(query: CursorQueryDto): Promise<{
+        data: {
+            createdAt: Date;
+            id: string;
+            userId: string;
+            kind: string;
+            status: string;
+            details: import("@prisma/client/runtime/client").JsonValue;
+            key: string;
+            resolvedAt: Date | null;
+            resolution: string | null;
+        }[];
+        meta: {
+            limit: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+        };
+    }>;
     resolve(req: AuthenticatedRequest, id: string, dto: FinancialReasonDto): Promise<{
-        id: string;
         createdAt: Date;
+        id: string;
         userId: string;
         kind: string;
         status: string;

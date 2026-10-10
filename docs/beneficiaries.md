@@ -32,3 +32,5 @@ Saving does not reserve or debit money, create a transfer recipient at Paystack,
 References: [Paystack account resolution](https://paystack.com/docs/api/verification/) and [supported bank list](https://paystack.com/docs/api/miscellaneous/).
 
 `npm run test:beneficiaries` tests concurrent saving, ownership, database constraints, and unchanged balances on a migrated disposable `LEDGER_TEST_DATABASE_URL` database named `wallet_ledger_test*`. Provider resolution responses are mocked. Never run database integration tests against the application database.
+
+See [pagination](pagination.md) for page limits, cursor parameters and frontend response changes.

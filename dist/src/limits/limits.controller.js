@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminLimitsController = exports.LimitsController = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
@@ -107,12 +108,14 @@ let AdminLimitsController = class AdminLimitsController {
     freeze(req, id, dto) {
         return this.change(req, id, dto.reason);
     }
-    flags() {
-        return this.prisma.activityFlag.findMany({
-            where: { status: 'OPEN' },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
+    async flags(query) {
+        const scope = 'activity-flags:open';
+        const rows = await this.prisma.activityFlag.findMany({
+            where: { AND: [{ status: 'OPEN' }, (0, cursor_1.cursorBounds)(query.cursor, scope)] },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
         });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope);
     }
     resolve(req, id, dto) {
         return this.prisma.$transaction(async (tx) => {
@@ -169,12 +172,13 @@ __decorate([
 __decorate([
     (0, common_1.Get)('flags'),
     (0, swagger_1.ApiOperation)({
-        summary: 'List latest 100 open suspicious-activity flags',
+        summary: 'List open suspicious-activity flags with cursor pagination',
         description: 'Flags require investigation; they do not automatically declare fraud or freeze money.',
     }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [cursor_1.CursorQueryDto]),
+    __metadata("design:returntype", Promise)
 ], AdminLimitsController.prototype, "flags", null);
 __decorate([
     (0, common_1.Post)('flags/:id/resolve'),

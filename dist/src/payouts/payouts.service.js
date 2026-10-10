@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayoutsService = void 0;
 exports.matchesTransfer = matchesTransfer;
+const cursor_1 = require("../common/pagination/cursor");
 const limits_service_1 = require("../limits/limits.service");
 const node_crypto_1 = require("node:crypto");
 const common_1 = require("@nestjs/common");
@@ -62,12 +63,14 @@ let PayoutsService = class PayoutsService {
     async get(userId, reference) {
         return this.response(await this.find(reference, userId));
     }
-    async list(userId) {
-        return (await this.prisma.payout.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-        })).map((row) => this.response(row));
+    async list(userId, query = new cursor_1.CursorQueryDto()) {
+        const scope = `payouts:${userId}`;
+        const rows = await this.prisma.payout.findMany({
+            where: { AND: [{ userId }, (0, cursor_1.cursorBounds)(query.cursor, scope)] },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
+        });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope, 'createdAt', (row) => this.response(row));
     }
     async create(userId, beneficiaryId, amount, key, expectedAuthVersion) {
         if (typeof key !== 'string' || !/^[A-Za-z0-9._:-]{1,200}$/.test(key))

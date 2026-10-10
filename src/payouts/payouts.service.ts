@@ -1,3 +1,4 @@
+import { CursorQueryDto, cursorBounds, cursorPage } from '../common/pagination/cursor';
 import { LimitsService } from '../limits/limits.service';
 import { randomUUID } from 'node:crypto';
 import {
@@ -57,14 +58,14 @@ export class PayoutsService {
   async get(userId: string, reference: string) {
     return this.response(await this.find(reference, userId));
   }
-  async list(userId: string) {
-    return (
-      await this.prisma.payout.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      })
-    ).map((row) => this.response(row));
+  async list(userId: string, query: CursorQueryDto = new CursorQueryDto()) {
+    const scope = `payouts:${userId}`;
+    const rows = await this.prisma.payout.findMany({
+      where: { AND: [{ userId }, cursorBounds(query.cursor, scope)] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return cursorPage(rows, query.limit, scope, 'createdAt', (row) => this.response(row));
   }
 
   async create(

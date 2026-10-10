@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OperationsController = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
@@ -109,26 +110,49 @@ let OperationsController = class OperationsController {
         });
         return run;
     }
-    runs() {
-        return this.prisma.reconciliationRun.findMany({ orderBy: { startedAt: 'desc' }, take: 100 });
-    }
-    issues() {
-        return this.prisma.reconciliationIssue.findMany({
-            where: { status: 'OPEN' },
-            orderBy: { lastSeenAt: 'desc' },
-            take: 100,
+    async runs(query) {
+        const scope = 'reconciliation-runs';
+        const rows = await this.prisma.reconciliationRun.findMany({
+            where: (0, cursor_1.cursorBounds)(query.cursor, scope, 'startedAt'),
+            orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
         });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope, 'startedAt');
     }
-    async cases() {
-        return (await this.prisma.financialCase.findMany({ orderBy: { updatedAt: 'desc' }, take: 100 })).map((row) => ({
+    async issues(query) {
+        const scope = 'reconciliation-issues:open';
+        const rows = await this.prisma.reconciliationIssue.findMany({
+            where: { AND: [{ status: 'OPEN' }, (0, cursor_1.cursorBounds)(query.cursor, scope, 'firstSeenAt')] },
+            orderBy: [{ firstSeenAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
+        });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope, 'firstSeenAt');
+    }
+    async cases(query) {
+        const scope = 'financial-cases';
+        const rows = await this.prisma.financialCase.findMany({
+            where: (0, cursor_1.cursorBounds)(query.cursor, scope),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
+        });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope, 'createdAt', (row) => ({
             ...row,
             amountMinor: row.amountMinor.toString(),
             recoveredMinor: row.recoveredMinor.toString(),
             shortfallMinor: row.shortfallMinor.toString(),
         }));
     }
-    async fees() {
-        return (await this.prisma.providerFee.findMany({ orderBy: { createdAt: 'desc' }, take: 100 })).map((row) => ({ ...row, amountMinor: row.amountMinor.toString() }));
+    async fees(query) {
+        const scope = 'provider-fees';
+        const rows = await this.prisma.providerFee.findMany({
+            where: (0, cursor_1.cursorBounds)(query.cursor, scope),
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
+        });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope, 'createdAt', (row) => ({
+            ...row,
+            amountMinor: row.amountMinor.toString(),
+        }));
     }
     resolve(req, id, dto) {
         return this.prisma.$transaction(async (tx) => {
@@ -177,30 +201,34 @@ __decorate([
 ], OperationsController.prototype, "run", null);
 __decorate([
     (0, common_1.Get)('runs'),
-    (0, swagger_1.ApiOperation)({ summary: 'Read latest 100 reconciliation runs' }),
+    (0, swagger_1.ApiOperation)({ summary: 'List reconciliation runs with cursor pagination' }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [cursor_1.CursorQueryDto]),
+    __metadata("design:returntype", Promise)
 ], OperationsController.prototype, "runs", null);
 __decorate([
     (0, common_1.Get)('issues'),
-    (0, swagger_1.ApiOperation)({ summary: 'Read latest 100 unresolved reconciliation issues' }),
+    (0, swagger_1.ApiOperation)({ summary: 'List unresolved reconciliation issues with cursor pagination' }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [cursor_1.CursorQueryDto]),
+    __metadata("design:returntype", Promise)
 ], OperationsController.prototype, "issues", null);
 __decorate([
     (0, common_1.Get)('cases'),
-    (0, swagger_1.ApiOperation)({ summary: 'Read latest financial cases and recovery shortfalls' }),
+    (0, swagger_1.ApiOperation)({ summary: 'List financial cases by creation date with cursor pagination' }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [cursor_1.CursorQueryDto]),
     __metadata("design:returntype", Promise)
 ], OperationsController.prototype, "cases", null);
 __decorate([
     (0, common_1.Get)('fees'),
-    (0, swagger_1.ApiOperation)({ summary: 'Read latest 100 verified business-borne provider fees' }),
+    (0, swagger_1.ApiOperation)({ summary: 'List provider fees with cursor pagination' }),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [cursor_1.CursorQueryDto]),
     __metadata("design:returntype", Promise)
 ], OperationsController.prototype, "fees", null);
 __decorate([

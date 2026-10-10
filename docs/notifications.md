@@ -22,3 +22,5 @@ Current Resend test-sender restrictions still apply: onboarding@resend.dev deliv
 Manual checks: complete a fresh test funding, confirm one FUNDING_SUCCESS item and an unread count increase. With provider mode and your eligible Resend-account email, check the email and spam folder. Repeat payment verification: no extra item/email should be created. Mark one item read, check the count falls, then repeat reading and verify its timestamp stays the same. A second user must receive 404 when trying to mark the first user's item read. Check transfer sender and recipient each receive their own item, and payout final outcomes and freeze transitions also appear.
 
 Email acceptance cannot guarantee exactly-once physical delivery by external mail systems. Stable event identity, transaction persistence, worker leases and provider idempotency protect against ordinary retry duplicates. This is not production email-domain configuration, browser push, a support inbox, or a guaranteed-delivery archive.
+
+See [pagination](pagination.md) for page limits, cursor parameters and frontend response changes.

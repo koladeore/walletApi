@@ -12,8 +12,8 @@ export declare class FinancialService {
         amountMinor: string;
         recoveredMinor: string;
         shortfallMinor: string;
-        id: string;
         createdAt: Date;
+        id: string;
         updatedAt: Date;
         kind: string;
         reference: string;

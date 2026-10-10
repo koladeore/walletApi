@@ -7,12 +7,12 @@ export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
     register(dto: RegisterDto): Promise<{
+        createdAt: Date;
+        id: string;
         email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
-        id: string;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     login(dto: LoginDto, req: AuthenticatedRequest): Promise<{
@@ -46,8 +46,8 @@ export declare class AuthController {
     }>;
     sessions(req: AuthenticatedRequest): Promise<{
         current: boolean;
-        id: string;
         createdAt: Date;
+        id: string;
         userAgent: string | null;
         lastUsedAt: Date;
         expiresAt: Date;

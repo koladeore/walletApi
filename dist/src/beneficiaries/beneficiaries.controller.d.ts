@@ -1,3 +1,4 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import type { AuthenticatedRequest } from '../common/types/authenticated-request';
 import { BeneficiariesService } from './beneficiaries.service';
 import { BankAccountDto } from './dto/bank-account.dto';
@@ -31,16 +32,23 @@ export declare class BeneficiariesController {
         verifiedAt: Date;
         createdAt: Date;
     }>;
-    list(req: AuthenticatedRequest): Promise<{
-        id: string;
-        bankCode: string;
-        accountNumberLast4: string;
-        accountName: string;
-        currency: string;
-        providerMode: string;
-        verifiedAt: Date;
-        createdAt: Date;
-    }[]>;
+    list(req: AuthenticatedRequest, query: CursorQueryDto): Promise<{
+        data: {
+            id: string;
+            bankCode: string;
+            accountNumberLast4: string;
+            accountName: string;
+            currency: string;
+            providerMode: string;
+            verifiedAt: Date;
+            createdAt: Date;
+        }[];
+        meta: {
+            limit: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+        };
+    }>;
     get(req: AuthenticatedRequest, id: string): Promise<{
         id: string;
         bankCode: string;

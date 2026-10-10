@@ -44,6 +44,8 @@ async function bootstrap() {
     .setDescription(
       `All routes use /api/v1. Authorize with the accessToken from login; refreshToken is used only for refresh/logout. Dates are UTC ISO 8601. Money and minor units are strings; use decimal-safe arithmetic.
 
+Cursor lists return { data, meta: { limit, hasMore, nextCursor } }; default limit 20, maximum 100. Pass nextCursor unchanged to fetch older records. Transactions and notifications preserve legacy page mode; select mode=cursor for deep scrolling. Transaction limit is capped at 100 and legacy page at 1000.
+
 Frontend flow: register → login → POST /auth/security/email/request → email/confirm. Registration sends a welcome email, not a verification code. A 201 code-request response means queued, not delivered. Codes last 10 minutes, allow five incorrect guesses, and are single-use. Requests have a 60-second per-purpose cooldown and a 10-request/account/hour limit.
 
 Sensitive actions: request step-up with current password, action and exact details → confirm email code → send returned proof in x-step-up-token. Proof lasts five minutes and is consumed once, including when the action fails afterward. Keep the same financial x-idempotency-key on retries but obtain a fresh proof. See step-up/request examples for each action. Password reset invalidates old sessions; log in again. Each login has a separate sessionId. Refresh replaces both tokens atomically; serialize refresh across tabs because reuse revokes that session. Session expiry is fixed at login. GET /auth/sessions lists devices; selected logout and logout-all revoke access and refresh tokens.

@@ -1,7 +1,9 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import {
   Body,
   Controller,
   Get,
+  Query,
   Headers,
   HttpCode,
   Param,
@@ -40,9 +42,9 @@ export class PayoutsController {
     );
   }
   @Get()
-  @ApiOperation({ summary: 'List your latest 100 payouts' })
-  list(@Req() req: AuthenticatedRequest) {
-    return this.payouts.list(req.user.id);
+  @ApiOperation({ summary: 'List your payouts with cursor pagination' })
+  list(@Req() req: AuthenticatedRequest, @Query() query: CursorQueryDto) {
+    return this.payouts.list(req.user.id, query);
   }
   @Get(':reference')
   @ApiOperation({ summary: 'Read your payout status' })

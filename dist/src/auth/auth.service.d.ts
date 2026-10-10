@@ -12,12 +12,12 @@ export declare class AuthService {
     private prisma;
     constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService);
     register(dto: RegisterDto): Promise<{
+        createdAt: Date;
+        id: string;
         email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
-        id: string;
-        createdAt: Date;
         updatedAt: Date;
     }>;
     login(dto: LoginDto, userAgent?: string): Promise<{
@@ -64,8 +64,8 @@ export declare class AuthService {
     logout(refreshToken: string): Promise<void>;
     sessions(userId: string, currentSessionId: string): Promise<{
         current: boolean;
-        id: string;
         createdAt: Date;
+        id: string;
         userAgent: string | null;
         lastUsedAt: Date;
         expiresAt: Date;

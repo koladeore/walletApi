@@ -12,10 +12,10 @@ export declare class ReconciliationService {
     private readonly financial;
     constructor(prisma: PrismaService, inventory: OperationsProviderService, paystack: PaystackService, payoutProvider: PayoutProviderService, financial: FinancialService);
     run(): Promise<{
+        startedAt: Date;
         id: string;
         summary: Prisma.JsonValue | null;
         status: string;
-        startedAt: Date;
         completedAt: Date | null;
     }>;
 }

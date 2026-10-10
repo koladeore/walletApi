@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletService = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const limits_service_1 = require("../limits/limits.service");
 const node_crypto_1 = require("node:crypto");
 const money_1 = require("../common/money/money");
@@ -342,6 +343,19 @@ let WalletService = class WalletService {
     }
     async getTransactionHistory(userId, query) {
         const { page = 1, limit = 10, type, startDate, endDate } = query;
+        if (!Number.isInteger(limit) ||
+            limit < 1 ||
+            limit > 100 ||
+            !Number.isInteger(page) ||
+            page < 1 ||
+            page > 1000)
+            throw new common_1.BadRequestException('Invalid page or limit');
+        if (startDate && endDate && new Date(startDate) > new Date(endDate))
+            throw new common_1.BadRequestException('startDate must not exceed endDate');
+        if (query.cursor && query.mode !== 'cursor')
+            throw new common_1.BadRequestException('cursor requires mode=cursor');
+        if (query.mode === 'cursor' && page !== 1)
+            throw new common_1.BadRequestException('Cursor mode cannot be combined with page');
         const skip = (page - 1) * limit;
         const wallet = await this.prisma.wallet.findUnique({
             where: { userId },
@@ -364,12 +378,27 @@ let WalletService = class WalletService {
                 where.createdAt.lte = new Date(endDate);
             }
         }
+        if (query.mode === 'cursor') {
+            const scope = JSON.stringify([
+                'transactions',
+                wallet.id,
+                type ?? null,
+                startDate ?? null,
+                endDate ?? null,
+            ]);
+            const rows = await this.prisma.transaction.findMany({
+                where: { AND: [where, (0, cursor_1.cursorBounds)(query.cursor, scope)] },
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+                take: limit + 1,
+            });
+            return (0, cursor_1.cursorPage)(rows, limit, scope, 'createdAt', money_1.transactionResponse);
+        }
         const [transactions, totalItems] = await Promise.all([
             this.prisma.transaction.findMany({
                 where,
                 take: limit,
                 skip,
-                orderBy: { createdAt: 'desc' },
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             }),
             this.prisma.transaction.count({ where }),
         ]);

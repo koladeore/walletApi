@@ -1,3 +1,4 @@
+import { CursorQueryDto, cursorBounds, cursorPage } from '../common/pagination/cursor';
 import {
   Injectable,
   ConflictException,
@@ -52,11 +53,15 @@ export class UsersService {
     return user;
   }
 
-  async getAllUsers() {
-    return this.prisma.user.findMany({
+  async getAllUsers(query: CursorQueryDto = new CursorQueryDto()) {
+    const scope = 'users';
+    const rows = await this.prisma.user.findMany({
+      where: cursorBounds(query.cursor, scope),
       select: userProfileSelect,
-      orderBy: { id: 'asc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
     });
+    return cursorPage(rows, query.limit, scope);
   }
 
   async getWallet(userId: string) {

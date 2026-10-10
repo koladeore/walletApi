@@ -43,6 +43,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
+const cursor_1 = require("../common/pagination/cursor");
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
@@ -81,11 +82,15 @@ let UsersService = class UsersService {
         });
         return user;
     }
-    async getAllUsers() {
-        return this.prisma.user.findMany({
+    async getAllUsers(query = new cursor_1.CursorQueryDto()) {
+        const scope = 'users';
+        const rows = await this.prisma.user.findMany({
+            where: (0, cursor_1.cursorBounds)(query.cursor, scope),
             select: userProfileSelect,
-            orderBy: { id: 'asc' },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: query.limit + 1,
         });
+        return (0, cursor_1.cursorPage)(rows, query.limit, scope);
     }
     async getWallet(userId) {
         const wallet = await this.prisma.wallet.findUnique({

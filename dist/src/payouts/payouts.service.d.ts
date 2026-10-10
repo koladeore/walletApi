@@ -1,3 +1,4 @@
+import { CursorQueryDto } from '../common/pagination/cursor';
 import { LimitsService } from '../limits/limits.service';
 import type { Payout } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,19 +39,26 @@ export declare class PayoutsService {
         lastError: string | null;
         createdAt: Date;
     }>;
-    list(userId: string): Promise<{
-        id: string;
-        reference: string;
-        beneficiaryId: string;
-        amount: string;
-        amountMinor: string;
-        currency: string;
-        status: import("@prisma/client").$Enums.PayoutStatus;
-        providerStatus: string | null;
-        uncertain: boolean;
-        lastError: string | null;
-        createdAt: Date;
-    }[]>;
+    list(userId: string, query?: CursorQueryDto): Promise<{
+        data: {
+            id: string;
+            reference: string;
+            beneficiaryId: string;
+            amount: string;
+            amountMinor: string;
+            currency: string;
+            status: import("@prisma/client").$Enums.PayoutStatus;
+            providerStatus: string | null;
+            uncertain: boolean;
+            lastError: string | null;
+            createdAt: Date;
+        }[];
+        meta: {
+            limit: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+        };
+    }>;
     create(userId: string, beneficiaryId: string, amount: string, key: string, expectedAuthVersion?: number): Promise<{
         id: string;
         reference: string;

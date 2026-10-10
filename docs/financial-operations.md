@@ -52,8 +52,8 @@ Provider inventories are paginated, with a 100-page safety bound. Exceeding the 
 Use an **administrator** account for `/api/v1/admin/financial-operations` endpoints. Ordinary users receive 403. Registration does not grant administrator privileges.
 
 1. `POST /reconcile`: run the checks now. No body is required. This may take time because it fetches and verifies provider records.
-2. `GET /runs`: read the latest 100 run results and counts.
-3. `GET /issues`: read the latest 100 unresolved discrepancies. Keys deduplicate repeated findings.
+2. `GET /runs`: read cursor-paginated run results and counts.
+3. `GET /issues`: read cursor-paginated unresolved discrepancies. Keys deduplicate repeated findings.
 4. `GET /cases` and `GET /fees`: inspect verified refund/dispute cases, recovery shortfalls, and booked provider fees. Monetary amounts are strings in minor units.
 5. `POST /issues/{id}/resolve`: after investigation, provide a meaningful `reason` with the external evidence reference. This records an audited resolution; it does not change money. A materially changed finding reopens the issue, while identical reviewed findings retain their resolution.
 6. `POST /wallets/{id}/unfreeze`: provide a meaningful `reason` after resolving active disputes and related investigation issues. This is audited, changes only the outgoing freeze, and cannot reopen a closed wallet. It does not collect or erase the recorded shortfall.
@@ -71,3 +71,5 @@ The database tests use mocked Paystack responses, including forced discrepancy d
 References: [Paystack refunds](https://paystack.com/docs/api/refund/), [disputes](https://paystack.com/docs/api/dispute/), and [webhook events](https://paystack.com/docs/payments/webhooks/).
 
 Manual reconciliation now requires an ADMIN step-up proof and an investigation reason. See [administrator controls](admin-controls.md) for the request example.
+
+See [pagination](pagination.md) for page limits, cursor parameters and frontend response changes.

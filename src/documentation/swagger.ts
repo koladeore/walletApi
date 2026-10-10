@@ -314,16 +314,16 @@ export function documentFrontendApi(document: OpenAPIObject) {
     'post /auth/security/password/reset': 'Message',
     'post /auth/security/step-up/request': 'SecurityChallenge',
     'post /auth/security/step-up/confirm': 'StepUpProof',
-    'get /notifications': 'NotificationPage',
+    'get /notifications': 'NotificationHistory',
     'get /notifications/unread-count': 'UnreadCount',
     'post /notifications/read-all': 'NotificationsRead',
     'post /notifications/{id}/read': 'Notification',
     'get /wallet/limits': 'AccountLimits',
     'post /admin/account-controls/users/{id}/tier': 'TierChanged',
     'post /admin/account-controls/users/{id}/freeze': 'AccountFrozen',
-    'get /admin/account-controls/flags': 'ActivityFlag[]',
+    'get /admin/account-controls/flags': 'ActivityFlagCursorPage',
     'post /admin/account-controls/flags/{id}/resolve': 'ActivityFlag',
-    'get /users': 'PublicUser[]',
+    'get /users': 'PublicUserCursorPage',
     'get /users/profile': 'PublicUser',
     'get /users/wallet': 'Wallet',
     'get /users/{id}': 'PublicUser',
@@ -333,28 +333,64 @@ export function documentFrontendApi(document: OpenAPIObject) {
     'get /beneficiaries/banks': 'Banks',
     'post /beneficiaries/resolve': 'ResolvedBank',
     'post /beneficiaries': 'Beneficiary',
-    'get /beneficiaries': 'Beneficiary[]',
+    'get /beneficiaries': 'BeneficiaryCursorPage',
     'get /beneficiaries/{id}': 'Beneficiary',
     'post /wallet/funding/initialize': 'Funding',
     'get /wallet/funding/{reference}': 'Funding',
     'post /wallet/funding/{reference}/verify': 'Funding',
     'post /wallet/payouts': 'Payout',
-    'get /wallet/payouts': 'Payout[]',
+    'get /wallet/payouts': 'PayoutCursorPage',
     'get /wallet/payouts/{reference}': 'Payout',
     'post /wallet/payouts/{reference}/verify': 'Payout',
     'post /wallet/fund': 'FundedWallet',
     'post /wallet/transfer': 'Transaction',
-    'get /wallet/transactions': 'TransactionPage',
+    'get /wallet/transactions': 'TransactionHistory',
     'post /wallet/transactions/{id}/reverse': 'Transaction',
     'post /paystack/webhook': 'WebhookAcknowledgement',
     'get /paystack/callback': 'Message',
     'post /admin/financial-operations/reconcile': 'ReconciliationRun',
-    'get /admin/financial-operations/runs': 'ReconciliationRun[]',
-    'get /admin/financial-operations/issues': 'ReconciliationIssue[]',
+    'get /admin/financial-operations/runs': 'ReconciliationRunCursorPage',
+    'get /admin/financial-operations/issues': 'ReconciliationIssueCursorPage',
     'post /admin/financial-operations/issues/{id}/resolve': 'ReconciliationIssue',
-    'get /admin/financial-operations/cases': 'FinancialCase[]',
-    'get /admin/financial-operations/fees': 'ProviderFee[]',
+    'get /admin/financial-operations/cases': 'FinancialCaseCursorPage',
+    'get /admin/financial-operations/fees': 'ProviderFeeCursorPage',
     'post /admin/financial-operations/wallets/{id}/unfreeze': 'UnfrozenWallet',
+  };
+  const paged = (name: string): SchemaObject =>
+    object({
+      data: array(ref(name)),
+      meta: object({
+        limit: integer(20),
+        hasMore: bool(true),
+        nextCursor: nullable(
+          string(
+            'OPAQUE_CURSOR_FROM_SERVER',
+            'Pass unchanged in cursor query parameter. null means no next page.',
+          ),
+        ),
+      }),
+    });
+  for (const name of [
+    'PublicUser',
+    'Payout',
+    'Beneficiary',
+    'ReconciliationRun',
+    'ReconciliationIssue',
+    'FinancialCase',
+    'ProviderFee',
+    'ActivityFlag',
+  ])
+    document.components.schemas[`${name}CursorPage`] = paged(name);
+  document.components.schemas.TransactionCursorPage = paged('Transaction');
+  document.components.schemas.TransactionHistory = {
+    oneOf: [ref('TransactionPage'), ref('TransactionCursorPage')],
+  };
+  document.components.schemas.NotificationCursorPage = object({
+    ...paged('Notification').properties,
+    unreadCount: integer(3),
+  });
+  document.components.schemas.NotificationHistory = {
+    oneOf: [ref('NotificationPage'), ref('NotificationCursorPage')],
   };
   for (const [path, item] of Object.entries(document.paths)) {
     for (const method of ['get', 'post', 'patch'] as const) {

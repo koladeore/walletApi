@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+import { CursorQueryDto, cursorBounds, cursorPage } from '../common/pagination/cursor';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
@@ -12,8 +14,29 @@ export class NotificationService {
     readAt: true,
     createdAt: true,
   } as const;
-  async list(userId: string, page: number, unreadOnly: boolean) {
+  async list(
+    userId: string,
+    page: number,
+    unreadOnly: boolean,
+    query?: CursorQueryDto & { mode?: string },
+  ) {
     const where = { userId, ...(unreadOnly ? { readAt: null } : {}) };
+    if (query?.cursor && query.mode !== 'cursor')
+      throw new BadRequestException('cursor requires mode=cursor');
+    if (query?.mode === 'cursor') {
+      if (page !== 1) throw new BadRequestException('Cursor mode cannot be combined with page');
+      const scope = `notifications:${userId}:${unreadOnly}`;
+      const rows = await this.prisma.notification.findMany({
+        where: { AND: [where, cursorBounds(query.cursor, scope)] },
+        select: this.select,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: query.limit + 1,
+      });
+      const count = await this.unreadCount(userId);
+      return { ...cursorPage(rows, query.limit, scope), ...count };
+    }
+    if (query?.limit && query.limit !== 20)
+      throw new BadRequestException('limit requires mode=cursor');
     const [data, total, unreadCount] = await this.prisma.$transaction([
       this.prisma.notification.findMany({
         where,
