@@ -11,7 +11,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const environment_1 = require("./config/environment");
 const nestjs_pino_1 = require("nestjs-pino");
-const throttler_1 = require("@nestjs/throttler");
+const shared_rate_limit_guard_1 = require("./rate-limit/shared-rate-limit.guard");
 const core_1 = require("@nestjs/core");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
@@ -89,19 +89,13 @@ exports.AppModule = AppModule = __decorate([
                     },
                 }),
             }),
-            throttler_1.ThrottlerModule.forRoot([
-                {
-                    ttl: 60000,
-                    limit: 10,
-                },
-            ]),
         ],
         controllers: [app_controller_1.AppController],
         providers: [
             app_service_1.AppService,
             {
                 provide: core_1.APP_GUARD,
-                useClass: throttler_1.ThrottlerGuard,
+                useClass: shared_rate_limit_guard_1.SharedRateLimitGuard,
             },
         ],
     })

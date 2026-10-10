@@ -43,6 +43,21 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
       errors.push(`${key} must be an integer from ${min} to ${max}`);
     return result;
   };
+  const rateLimits: Record<string, number> = {};
+  for (const [policy, ip, account] of [
+    ['LOGIN', 10, 5],
+    ['MONEY', 20, 10],
+    ['READ', 120, 120],
+    ['WRITE', 30, 20],
+  ] as const) {
+    rateLimits[`RATE_${policy}_IP_LIMIT`] = bounded(`RATE_${policy}_IP_LIMIT`, ip, 1, 10000);
+    rateLimits[`RATE_${policy}_ACCOUNT_LIMIT`] = bounded(
+      `RATE_${policy}_ACCOUNT_LIMIT`,
+      account,
+      1,
+      10000,
+    );
+  }
   const poolMax = bounded('DB_POOL_MAX', 10, 1, 100);
   const connectionTimeout = bounded('DB_CONNECTION_TIMEOUT_MS', 5000, 100, 60000);
   const idleTimeout = bounded('DB_IDLE_TIMEOUT_MS', 30000, 1000, 600000);
@@ -137,6 +152,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
   if (errors.length) throw new Error(`Invalid configuration:\n- ${errors.join('\n- ')}`);
   return {
     ...config,
+    ...rateLimits,
     NODE_ENV: nodeEnv,
     DATABASE_URL: databaseUrl,
     DB_POOL_MAX: poolMax,
