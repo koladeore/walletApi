@@ -12,9 +12,9 @@ export declare class AuthService {
     private prisma;
     constructor(usersService: UsersService, jwtService: JwtService, configService: ConfigService, prisma: PrismaService);
     register(dto: RegisterDto): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;

@@ -62,3 +62,5 @@ See [account limits](account-limits.md) for policy defaults, shared daily enforc
 See [notifications](notifications.md) for persistent in-app notifications and existing Resend delivery. Production email setup remains separate.
 
 See [database performance](database-performance.md) for indexes, query-plan inspection, pool limits and the Compose server connection budget.
+
+See [shared rate limits](rate-limits.md) for RATE_* policy settings, proxy trust and Redis outage behavior.

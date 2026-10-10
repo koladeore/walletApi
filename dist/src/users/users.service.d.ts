@@ -23,9 +23,9 @@ export declare class UsersService {
     findByEmail(email: string): Promise<User | null>;
     findById(id: string): Promise<User | null>;
     getProfile(id: string): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
@@ -34,9 +34,9 @@ export declare class UsersService {
     } | null>;
     getAllUsers(query?: CursorQueryDto): Promise<{
         data: {
+            email: string;
             createdAt: Date;
             id: string;
-            email: string;
             firstName: string | null;
             lastName: string | null;
             isActive: boolean;
@@ -78,9 +78,9 @@ export declare class UsersService {
         closedAt: Date | null;
     }>;
     updateStatus(actorId: string, userId: string, dto: UpdateUserStatusDto, expectedAuthVersion?: number): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;

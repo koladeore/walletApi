@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 // Validation errors name settings only; never echo credentials or connection URLs.
 export function validateEnvironment(config: Record<string, unknown>): Record<string, unknown> {
   const errors: string[] = [];
@@ -67,6 +68,16 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     errors.push('DB_LOCK_TIMEOUT_MS must be less than DB_STATEMENT_TIMEOUT_MS');
   const apiPort = port('PORT', '3000');
   const redisPort = port('REDIS_PORT', '6379');
+  const trustedProxyIps = config.TRUST_PROXY_IPS ?? '';
+  if (
+    typeof trustedProxyIps !== 'string' ||
+    trustedProxyIps
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .some((value) => !isIP(value) && value !== 'loopback')
+  )
+    errors.push('TRUST_PROXY_IPS must contain IP addresses or loopback');
   const redisHost = text('REDIS_HOST', nodeEnv === 'production' ? undefined : 'localhost');
   if (/\s|:\/\//.test(redisHost)) errors.push('REDIS_HOST must be a hostname, not a URL');
 

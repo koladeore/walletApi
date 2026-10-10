@@ -33,6 +33,7 @@ let SharedRateLimitGuard = SharedRateLimitGuard_1 = class SharedRateLimitGuard {
     config;
     redis;
     jwt = new jwt_1.JwtService();
+    lastWarningAt = 0;
     logger = new common_1.Logger(SharedRateLimitGuard_1.name);
     constructor(config) {
         this.config = config;
@@ -59,14 +60,18 @@ let SharedRateLimitGuard = SharedRateLimitGuard_1 = class SharedRateLimitGuard {
     async canActivate(context) {
         if (context.getClass().name === 'PaystackController' && context.getHandler().name === 'receive')
             return true;
-        const req = context.switchToHttp().getRequest();
+        const req = context
+            .switchToHttp()
+            .getRequest();
         const res = context.switchToHttp().getResponse();
-        const path = req.originalUrl.split('?')[0];
-        const policy = path === '/api/v1/auth/login'
+        const controller = context.getClass().name;
+        const handler = context.getHandler().name;
+        const policy = controller === 'AuthController' && handler === 'login'
             ? 'login'
             : req.method === 'GET' || req.method === 'HEAD'
                 ? 'read'
-                : path === '/api/v1/wallet/transfer' || path === '/api/v1/wallet/payouts'
+                : (controller === 'WalletController' && handler === 'transfer') ||
+                    (controller === 'PayoutsController' && handler === 'create')
                     ? 'money'
                     : 'write';
         const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
@@ -86,9 +91,15 @@ let SharedRateLimitGuard = SharedRateLimitGuard_1 = class SharedRateLimitGuard {
         }
         else {
             const bearer = req.headers.authorization;
-            if (typeof bearer === 'string' && bearer.startsWith('Bearer ') && bearer.length <= 4096) {
+            const match = typeof bearer === 'string' && bearer.length <= 4096
+                ? /^Bearer\s+(\S+)$/i.exec(bearer)
+                : null;
+            if (match) {
                 try {
-                    const payload = await this.jwt.verifyAsync(bearer.slice(7), { secret: this.config.getOrThrow('JWT_SECRET'), algorithms: ['HS256'] });
+                    const payload = await this.jwt.verifyAsync(match[1], {
+                        secret: this.config.getOrThrow('JWT_SECRET'),
+                        algorithms: ['HS256'],
+                    });
                     if (payload.kind === 'access' &&
                         typeof payload.sub === 'string' &&
                         payload.sub.length <= 100) {
@@ -106,7 +117,10 @@ let SharedRateLimitGuard = SharedRateLimitGuard_1 = class SharedRateLimitGuard {
             result = await this.redis.eval(script, keys.length, ...keys, 60000);
         }
         catch {
-            this.logger.warn('Shared rate limiting unavailable');
+            if (Date.now() - this.lastWarningAt > 30000) {
+                this.logger.warn('Shared rate limiting unavailable');
+                this.lastWarningAt = Date.now();
+            }
             throw new common_1.ServiceUnavailableException('Request protection temporarily unavailable');
         }
         if (!Array.isArray(result) ||
@@ -122,6 +136,9 @@ let SharedRateLimitGuard = SharedRateLimitGuard_1 = class SharedRateLimitGuard {
                 retry = Math.max(retry, Math.ceil(counts[i * 2 + 1] / 1000));
         }
         res.setHeader('X-RateLimit-Policy', policy);
+        res.setHeader('X-RateLimit-Limit-IP', limits[0]);
+        if (limits.length > 1)
+            res.setHeader('X-RateLimit-Limit-Account', limits[1]);
         res.setHeader('X-RateLimit-Remaining', remaining);
         res.setHeader('X-RateLimit-Reset', Math.ceil(Math.max(...counts.filter((_, i) => i % 2 === 1)) / 1000));
         if (retry) {

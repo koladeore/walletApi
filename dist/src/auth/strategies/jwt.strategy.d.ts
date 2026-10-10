@@ -17,9 +17,9 @@ export declare class JwtStrategy extends JwtStrategy_base {
         kind?: string;
     }): Promise<{
         sessionId: string;
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         password: string;
         firstName: string | null;
         lastName: string | null;

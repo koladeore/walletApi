@@ -9,9 +9,9 @@ export declare class UsersController {
     constructor(usersService: UsersService);
     getAllUsers(query: CursorQueryDto): Promise<{
         data: {
+            email: string;
             createdAt: Date;
             id: string;
-            email: string;
             firstName: string | null;
             lastName: string | null;
             isActive: boolean;
@@ -24,9 +24,9 @@ export declare class UsersController {
         };
     }>;
     getProfile(req: AuthenticatedRequest): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
@@ -57,9 +57,9 @@ export declare class UsersController {
         lastName: string | null;
     }>;
     getUserById(id: string): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;
@@ -72,9 +72,9 @@ export declare class UsersController {
         closedAt: Date | null;
     }>;
     updateStatus(req: AuthenticatedRequest, id: string, dto: UpdateUserStatusDto): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;

@@ -4,6 +4,7 @@ export declare class SharedRateLimitGuard implements CanActivate, OnModuleDestro
     private readonly config;
     private readonly redis;
     private readonly jwt;
+    private lastWarningAt;
     private readonly logger;
     constructor(config: ConfigService);
     onModuleDestroy(): void;

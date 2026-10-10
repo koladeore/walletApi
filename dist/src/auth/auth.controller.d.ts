@@ -7,9 +7,9 @@ export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
     register(dto: RegisterDto): Promise<{
+        email: string;
         createdAt: Date;
         id: string;
-        email: string;
         firstName: string | null;
         lastName: string | null;
         isActive: boolean;

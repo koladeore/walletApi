@@ -1,3 +1,4 @@
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -10,10 +11,19 @@ import { ConfigService } from '@nestjs/config';
 import { documentFrontendApi } from './documentation/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
 
   // Use nestjs-pino logger
   app.useLogger(app.get(Logger));
+
+  const trustedProxies = (app.get(ConfigService).get<string>('TRUST_PROXY_IPS') ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  app.set('trust proxy', trustedProxies.length ? trustedProxies : false);
 
   // Security & Optimization
   app.use(helmet());
@@ -43,6 +53,8 @@ async function bootstrap() {
     .setTitle('Wallet API')
     .setDescription(
       `All routes use /api/v1. Authorize with the accessToken from login; refreshToken is used only for refresh/logout. Dates are UTC ISO 8601. Money and minor units are strings; use decimal-safe arithmetic.
+
+Shared Redis fixed-window rate policies: login 10/IP and 5/account per minute; transfers/new payouts 20/IP and 10/account; reads 120/IP and 120/account; other writes 30/IP and 20/account (configurable). Inspect X-RateLimit-Policy/Remaining/Reset and Retry-After on 429. Redis outage fails closed with 503. Forwarded client IPs are trusted only from configured proxies.
 
 Cursor lists return { data, meta: { limit, hasMore, nextCursor } }; default limit 20, maximum 100. Pass nextCursor unchanged to fetch older records. Transactions and notifications preserve legacy page mode; select mode=cursor for deep scrolling. Transaction limit is capped at 100 and legacy page at 1000.
 

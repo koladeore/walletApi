@@ -411,6 +411,9 @@ export function documentFrontendApi(document: OpenAPIObject) {
           },
         },
       };
+      operation.description =
+        (operation.description ?? '') +
+        ' Shared Redis rate limits apply by policy and IP/account. 429 responses include Retry-After in seconds; Redis outages return 503. Paystack webhooks are exempt.';
       for (const [status, description] of Object.entries({
         400: 'Invalid request, invalid amount, or insufficient funds.',
         401: 'Missing/expired credentials, invalid code, or invalid/used step-up proof.',

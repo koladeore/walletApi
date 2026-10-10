@@ -14,8 +14,16 @@ const swagger_1 = require("@nestjs/swagger");
 const config_1 = require("@nestjs/config");
 const swagger_2 = require("./documentation/swagger");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule, { bufferLogs: true, rawBody: true });
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        bufferLogs: true,
+        rawBody: true,
+    });
     app.useLogger(app.get(nestjs_pino_1.Logger));
+    const trustedProxies = (app.get(config_1.ConfigService).get('TRUST_PROXY_IPS') ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    app.set('trust proxy', trustedProxies.length ? trustedProxies : false);
     app.use((0, helmet_1.default)());
     app.use((0, compression_1.default)());
     app.setGlobalPrefix('api/v1');
@@ -32,6 +40,8 @@ async function bootstrap() {
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Wallet API')
         .setDescription(`All routes use /api/v1. Authorize with the accessToken from login; refreshToken is used only for refresh/logout. Dates are UTC ISO 8601. Money and minor units are strings; use decimal-safe arithmetic.
+
+Shared Redis fixed-window rate policies: login 10/IP and 5/account per minute; transfers/new payouts 20/IP and 10/account; reads 120/IP and 120/account; other writes 30/IP and 20/account (configurable). Inspect X-RateLimit-Policy/Remaining/Reset and Retry-After on 429. Redis outage fails closed with 503. Forwarded client IPs are trusted only from configured proxies.
 
 Cursor lists return { data, meta: { limit, hasMore, nextCursor } }; default limit 20, maximum 100. Pass nextCursor unchanged to fetch older records. Transactions and notifications preserve legacy page mode; select mode=cursor for deep scrolling. Transaction limit is capped at 100 and legacy page at 1000.
 
