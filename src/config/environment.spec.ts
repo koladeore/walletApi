@@ -31,6 +31,12 @@ describe('Startup configuration', () => {
     expect(validateEnvironment(valid())).toEqual({
       ...valid(),
       PORT: 3000,
+      DB_POOL_MAX: 10,
+      DB_CONNECTION_TIMEOUT_MS: 5000,
+      DB_IDLE_TIMEOUT_MS: 30000,
+      DB_STATEMENT_TIMEOUT_MS: 15000,
+      DB_LOCK_TIMEOUT_MS: 5000,
+      NOTIFICATION_EMAIL_ENABLED: 'true',
       REDIS_PORT: 6379,
       JWT_EXPIRES_IN: 900,
       REFRESH_EXPIRES_IN: 604800,

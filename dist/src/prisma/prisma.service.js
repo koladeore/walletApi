@@ -18,8 +18,19 @@ const pg_1 = require("pg");
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor(config) {
         const url = config.getOrThrow('DATABASE_URL');
-        const pool = new pg_1.Pool({ connectionString: url });
-        const adapter = new adapter_pg_1.PrismaPg(pool);
+        const pool = new pg_1.Pool({
+            connectionString: url,
+            max: config.get('DB_POOL_MAX') ?? 10,
+            connectionTimeoutMillis: config.get('DB_CONNECTION_TIMEOUT_MS') ?? 5000,
+            idleTimeoutMillis: config.get('DB_IDLE_TIMEOUT_MS') ?? 30000,
+            statement_timeout: config.get('DB_STATEMENT_TIMEOUT_MS') ?? 15000,
+            lock_timeout: config.get('DB_LOCK_TIMEOUT_MS') ?? 5000,
+            application_name: 'wallet-api',
+        });
+        const adapter = new adapter_pg_1.PrismaPg(pool, {
+            disposeExternalPool: true,
+            onPoolError: () => common_1.Logger.error('Database pool connection error', 'PrismaService'),
+        });
         super({ adapter });
     }
     async onModuleInit() {

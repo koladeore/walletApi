@@ -36,6 +36,21 @@ function validateEnvironment(config) {
         }
         return result;
     };
+    const bounded = (key, fallback, min, max) => {
+        const raw = config[key] ?? fallback;
+        const value = typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '';
+        const result = Number(value);
+        if (!/^\d+$/.test(value) || !Number.isSafeInteger(result) || result < min || result > max)
+            errors.push(`${key} must be an integer from ${min} to ${max}`);
+        return result;
+    };
+    const poolMax = bounded('DB_POOL_MAX', 10, 1, 100);
+    const connectionTimeout = bounded('DB_CONNECTION_TIMEOUT_MS', 5000, 100, 60000);
+    const idleTimeout = bounded('DB_IDLE_TIMEOUT_MS', 30000, 1000, 600000);
+    const statementTimeout = bounded('DB_STATEMENT_TIMEOUT_MS', 15000, 1000, 300000);
+    const lockTimeout = bounded('DB_LOCK_TIMEOUT_MS', 5000, 100, 60000);
+    if (lockTimeout >= statementTimeout)
+        errors.push('DB_LOCK_TIMEOUT_MS must be less than DB_STATEMENT_TIMEOUT_MS');
     const apiPort = port('PORT', '3000');
     const redisPort = port('REDIS_PORT', '6379');
     const redisHost = text('REDIS_HOST', nodeEnv === 'production' ? undefined : 'localhost');
@@ -113,6 +128,11 @@ function validateEnvironment(config) {
         ...config,
         NODE_ENV: nodeEnv,
         DATABASE_URL: databaseUrl,
+        DB_POOL_MAX: poolMax,
+        DB_CONNECTION_TIMEOUT_MS: connectionTimeout,
+        DB_IDLE_TIMEOUT_MS: idleTimeout,
+        DB_STATEMENT_TIMEOUT_MS: statementTimeout,
+        DB_LOCK_TIMEOUT_MS: lockTimeout,
         PORT: apiPort,
         REDIS_HOST: redisHost,
         REDIS_PORT: redisPort,

@@ -51,6 +51,7 @@ model User {
   updatedAt    DateTime     @updatedAt
 
   @@map("users")
+  @@index([createdAt, id], map: "idx_users_date_id")
 }
 
 model Wallet {
@@ -100,6 +101,8 @@ model Transaction {
   updatedAt        DateTime          @updatedAt
 
   @@map("transactions")
+  @@index([senderWalletId, createdAt, id], map: "idx_transactions_sender_date_id")
+  @@index([receiverWalletId, createdAt, id], map: "idx_transactions_receiver_date_id")
 }
 
 model AuthToken {
@@ -292,6 +295,7 @@ model Beneficiary {
   @@unique([userId, bankCode, accountNumber])
   @@index([userId, createdAt])
   @@map("beneficiaries")
+  @@index([userId, createdAt, id], map: "idx_beneficiaries_user_date_id")
 }
 
 enum PayoutStatus {
@@ -335,6 +339,7 @@ model Payout {
   @@unique([userId, idempotencyKey])
   @@index([status, nextCheckAt])
   @@map("payouts")
+  @@index([userId, createdAt, id], map: "idx_payouts_user_date_id")
 }
 
 model ReconciliationRun {
@@ -344,6 +349,7 @@ model ReconciliationRun {
   completedAt DateTime?
   summary Json?
   @@map("reconciliation_runs")
+  @@index([startedAt, id], map: "idx_reconciliation_runs_date_id")
 }
 
 model ReconciliationIssue {
@@ -359,6 +365,7 @@ model ReconciliationIssue {
   resolution String?
   @@index([status, lastSeenAt])
   @@map("reconciliation_issues")
+  @@index([status, firstSeenAt, id], map: "idx_reconciliation_issues_status_date_id")
 }
 
 model FinancialCase {
@@ -379,6 +386,7 @@ model FinancialCase {
   @@unique([kind, providerId])
   @@index([nextCheckAt])
   @@map("financial_cases")
+  @@index([createdAt, id], map: "idx_financial_cases_date_id")
 }
 
 model ProviderFee {
@@ -388,6 +396,7 @@ model ProviderFee {
   amountMinor BigInt
   createdAt DateTime @default(now())
   @@map("provider_fees")
+  @@index([createdAt, id], map: "idx_provider_fees_date_id")
 }
 
 model ReconciliationLease {
@@ -454,6 +463,7 @@ model AuthSession {
   tokens SessionRefreshToken[]
   @@index([userId, revokedAt])
   @@map("auth_sessions")
+  @@index([userId, revokedAt, createdAt, id], map: "idx_sessions_user_active_date_id")
 }
 
 model SessionRefreshToken {
@@ -488,6 +498,7 @@ model ActivityFlag {
   resolution String?
   @@index([status, createdAt])
   @@map("activity_flags")
+  @@index([status, createdAt, id], map: "idx_activity_flags_status_date_id")
 }
 
 model Notification {
@@ -509,4 +520,6 @@ model Notification {
   @@index([userId, createdAt])
   @@index([emailStatus, emailNextAttemptAt])
   @@map("notifications")
+  @@index([userId, createdAt, id], map: "idx_notifications_user_date_id")
+  @@index([userId, readAt, createdAt, id], map: "idx_notifications_user_read_date_id")
 }

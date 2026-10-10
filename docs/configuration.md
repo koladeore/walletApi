@@ -6,6 +6,9 @@ The API validates configuration at startup, before serving requests. Errors name
 | --- | --- |
 | NODE_ENV | Explicitly `development`, `test`, or `production` |
 | DATABASE_URL | PostgreSQL URL with a hostname and database name |
+| DB_POOL_MAX | Per-process pool ceiling, default 10, range 1–100 |
+| DB_CONNECTION_TIMEOUT_MS / DB_IDLE_TIMEOUT_MS | Defaults 5000 / 30000 ms |
+| DB_STATEMENT_TIMEOUT_MS / DB_LOCK_TIMEOUT_MS | Defaults 15000 / 5000 ms; lock must be less than statement timeout |
 | JWT_SECRET / REFRESH_SECRET | Required, different values; production rejects short, repetitive, and known placeholder secrets |
 | JWT_EXPIRES_IN / REFRESH_EXPIRES_IN | Positive durations with `s`, `m`, `h`, or `d`; defaults `15m` / `7d`; maximum `365d` |
 | PORT / REDIS_PORT | Integer 1-65535; defaults 3000 / 6379 |
@@ -57,3 +60,5 @@ The included PostgreSQL credentials and published database/Redis ports are for l
 See [account limits](account-limits.md) for policy defaults, shared daily enforcement, investigation flags and admin freeze controls.
 
 See [notifications](notifications.md) for persistent in-app notifications and existing Resend delivery. Production email setup remains separate.
+
+See [database performance](database-performance.md) for indexes, query-plan inspection, pool limits and the Compose server connection budget.

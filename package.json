@@ -26,7 +26,8 @@
     "test:beneficiaries": "node -r ts-node/register test/beneficiaries/integration.cjs",
     "test:payouts": "node -r ts-node/register test/payouts/integration.cjs",
     "test:operations": "node -r ts-node/register test/operations/integration.cjs",
-    "test:security": "node -r ts-node/register test/security/integration.cjs"
+    "test:security": "node -r ts-node/register test/security/integration.cjs",
+    "db:plans": "node scripts/database-plans.cjs"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",
