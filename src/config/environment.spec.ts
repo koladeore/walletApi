@@ -30,6 +30,8 @@ describe('Startup configuration', () => {
   it('accepts valid production settings and normalizes safe defaults', () => {
     expect(validateEnvironment(valid())).toEqual({
       ...valid(),
+      APP_MODE: 'combined',
+      CORS_ORIGINS: '',
       PORT: 3000,
       RATE_LOGIN_IP_LIMIT: 10,
       RATE_LOGIN_ACCOUNT_LIMIT: 5,

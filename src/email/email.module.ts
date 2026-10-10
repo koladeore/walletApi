@@ -1,3 +1,4 @@
+import { workersEnabled } from '../config/runtime-mode';
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { EmailService } from './email.service';
@@ -9,7 +10,7 @@ import { EmailProcessor } from './email.processor';
       name: 'email',
     }),
   ],
-  providers: [EmailService, EmailProcessor],
+  providers: [EmailService, ...(workersEnabled() ? [EmailProcessor] : [])],
   exports: [EmailService],
 })
 export class EmailModule {}

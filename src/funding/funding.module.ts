@@ -1,3 +1,4 @@
+import { workersEnabled } from '../config/runtime-mode';
 import { Module } from '@nestjs/common';
 import { PaystackModule } from '../paystack/paystack.module';
 import { FundingService } from './funding.service';
@@ -11,7 +12,12 @@ import { OperationsModule } from '../operations/operations.module';
 
 @Module({
   imports: [PaystackModule, PayoutsModule, OperationsModule],
-  providers: [FundingService, ConfirmationService, WebhookService, FundingWorker],
+  providers: [
+    FundingService,
+    ConfirmationService,
+    WebhookService,
+    ...(workersEnabled() ? [FundingWorker] : []),
+  ],
   controllers: [FundingController, PaystackController],
 })
 export class FundingModule {}

@@ -16,6 +16,29 @@ function validateEnvironment(config) {
     if (!['development', 'test', 'production'].includes(nodeEnv)) {
         errors.push('NODE_ENV must be development, test, or production');
     }
+    const appMode = text('APP_MODE', 'combined');
+    if (!['combined', 'api', 'worker'].includes(appMode))
+        errors.push('APP_MODE must be combined, api or worker');
+    const corsOrigins = config.CORS_ORIGINS ?? '';
+    if (typeof corsOrigins !== 'string')
+        errors.push('CORS_ORIGINS must be comma-separated HTTP(S) origins');
+    else
+        for (const origin of corsOrigins
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean)) {
+            try {
+                const url = new URL(origin);
+                if (!['http:', 'https:'].includes(url.protocol) ||
+                    url.origin !== origin ||
+                    url.username ||
+                    url.password)
+                    errors.push('CORS_ORIGINS must contain exact HTTP(S) origins without paths or credentials');
+            }
+            catch {
+                errors.push('CORS_ORIGINS contains an invalid origin');
+            }
+        }
     const databaseUrl = text('DATABASE_URL');
     try {
         const url = new URL(databaseUrl);
@@ -147,6 +170,8 @@ function validateEnvironment(config) {
         ...config,
         ...rateLimits,
         NODE_ENV: nodeEnv,
+        APP_MODE: appMode,
+        CORS_ORIGINS: corsOrigins,
         DATABASE_URL: databaseUrl,
         DB_POOL_MAX: poolMax,
         DB_CONNECTION_TIMEOUT_MS: connectionTimeout,

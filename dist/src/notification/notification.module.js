@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationModule = void 0;
+const runtime_mode_1 = require("../config/runtime-mode");
 const security_module_1 = require("../security/security.module");
 const delivery_controller_1 = require("./delivery.controller");
 const common_1 = require("@nestjs/common");
@@ -19,7 +20,7 @@ exports.NotificationModule = NotificationModule;
 exports.NotificationModule = NotificationModule = __decorate([
     (0, common_1.Module)({
         imports: [security_module_1.SecurityModule],
-        providers: [notification_service_1.NotificationService, notification_worker_1.NotificationWorker],
+        providers: [notification_service_1.NotificationService, ...((0, runtime_mode_1.workersEnabled)() ? [notification_worker_1.NotificationWorker] : [])],
         controllers: [notification_controller_1.NotificationController, delivery_controller_1.DeliveryController],
         exports: [notification_service_1.NotificationService],
     })

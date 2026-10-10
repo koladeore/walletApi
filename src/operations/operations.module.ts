@@ -1,3 +1,4 @@
+import { workersEnabled } from '../config/runtime-mode';
 import { Module } from '@nestjs/common';
 import { PaystackModule } from '../paystack/paystack.module';
 import { FinancialService } from './financial.service';
@@ -8,7 +9,11 @@ import { SecurityModule } from '../security/security.module';
 
 @Module({
   imports: [PaystackModule, SecurityModule],
-  providers: [FinancialService, ReconciliationService, OperationsWorker],
+  providers: [
+    FinancialService,
+    ReconciliationService,
+    ...(workersEnabled() ? [OperationsWorker] : []),
+  ],
   controllers: [OperationsController],
   exports: [FinancialService],
 })

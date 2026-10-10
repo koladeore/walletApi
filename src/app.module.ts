@@ -1,3 +1,4 @@
+import { apiEnabled } from './config/runtime-mode';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { validateEnvironment } from './config/environment';
@@ -84,10 +85,7 @@ const prettyTarget = prettyLogTarget();
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_GUARD,
-      useClass: SharedRateLimitGuard,
-    },
+    ...(apiEnabled() ? [{ provide: APP_GUARD, useClass: SharedRateLimitGuard }] : []),
   ],
 })
 export class AppModule {}

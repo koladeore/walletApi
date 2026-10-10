@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
+const runtime_mode_1 = require("./config/runtime-mode");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const environment_1 = require("./config/environment");
@@ -93,10 +94,7 @@ exports.AppModule = AppModule = __decorate([
         controllers: [app_controller_1.AppController],
         providers: [
             app_service_1.AppService,
-            {
-                provide: core_1.APP_GUARD,
-                useClass: shared_rate_limit_guard_1.SharedRateLimitGuard,
-            },
+            ...((0, runtime_mode_1.apiEnabled)() ? [{ provide: core_1.APP_GUARD, useClass: shared_rate_limit_guard_1.SharedRateLimitGuard }] : []),
         ],
     })
 ], AppModule);

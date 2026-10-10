@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const runtime_mode_1 = require("./config/runtime-mode");
 const core_1 = require("@nestjs/core");
 const app_module_1 = require("./app.module");
 const common_1 = require("@nestjs/common");
@@ -14,10 +15,38 @@ const swagger_1 = require("@nestjs/swagger");
 const config_1 = require("@nestjs/config");
 const swagger_2 = require("./documentation/swagger");
 async function bootstrap() {
+    if (!(0, runtime_mode_1.apiEnabled)()) {
+        const context = await core_1.NestFactory.createApplicationContext(app_module_1.AppModule, { bufferLogs: true });
+        context.useLogger(context.get(nestjs_pino_1.Logger));
+        context.enableShutdownHooks();
+        console.log('Worker process started; no HTTP port is opened.');
+        return;
+    }
     const app = await core_1.NestFactory.create(app_module_1.AppModule, {
         bufferLogs: true,
         rawBody: true,
     });
+    app.enableShutdownHooks();
+    const origins = (app.get(config_1.ConfigService).get('CORS_ORIGINS') ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    if (origins.length)
+        app.enableCors({
+            origin: origins,
+            credentials: false,
+            methods: ['GET', 'HEAD', 'POST', 'PATCH', 'OPTIONS'],
+            allowedHeaders: ['Authorization', 'Content-Type', 'x-idempotency-key', 'x-step-up-token'],
+            exposedHeaders: [
+                'Retry-After',
+                'X-RateLimit-Policy',
+                'X-RateLimit-Remaining',
+                'X-RateLimit-Reset',
+                'X-RateLimit-Limit-IP',
+                'X-RateLimit-Limit-Account',
+            ],
+            maxAge: 600,
+        });
     app.useLogger(app.get(nestjs_pino_1.Logger));
     const trustedProxies = (app.get(config_1.ConfigService).get('TRUST_PROXY_IPS') ?? '')
         .split(',')

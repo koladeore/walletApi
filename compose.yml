@@ -45,11 +45,13 @@ services:
         condition: service_healthy
     restart: "no"
 
-  api:
+  api: &api_service
     build:
       context: .
       target: production
-    environment:
+    environment: &api_environment
+      APP_MODE: api
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       NODE_ENV: production
       ENABLE_SIMULATED_FUNDING: "false"
       PORT: 3000
@@ -86,7 +88,7 @@ services:
       AUTH_DELIVERY_MODE: ${AUTH_DELIVERY_MODE:-disabled}
       AUTH_EMAIL_FROM: ${AUTH_EMAIL_FROM:-}
     ports:
-      - "3000:3000"
+      - "${API_PUBLISH_PORT:-3000:3000}"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -105,6 +107,16 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
+
+  worker:
+    <<: *api_service
+    ports: []
+    environment:
+      <<: *api_environment
+      APP_MODE: worker
+    command: ["node", "dist/src/main.js"]
+    healthcheck:
+      disable: true
 
 volumes:
   postgres_data:

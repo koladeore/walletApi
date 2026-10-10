@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PayoutsModule = void 0;
+const runtime_mode_1 = require("../config/runtime-mode");
 const limits_module_1 = require("../limits/limits.module");
 const common_1 = require("@nestjs/common");
 const paystack_module_1 = require("../paystack/paystack.module");
@@ -21,7 +22,7 @@ exports.PayoutsModule = PayoutsModule = __decorate([
     (0, common_1.Module)({
         imports: [limits_module_1.LimitsModule, paystack_module_1.PaystackModule, security_module_1.SecurityModule],
         controllers: [payouts_controller_1.PayoutsController],
-        providers: [payouts_service_1.PayoutsService, payouts_worker_1.PayoutsWorker],
+        providers: [payouts_service_1.PayoutsService, ...((0, runtime_mode_1.workersEnabled)() ? [payouts_worker_1.PayoutsWorker] : [])],
         exports: [payouts_service_1.PayoutsService],
     })
 ], PayoutsModule);

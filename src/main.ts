@@ -1,3 +1,4 @@
+import { apiEnabled } from './config/runtime-mode';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { NestFactory, HttpAdapterHost } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -11,10 +12,40 @@ import { ConfigService } from '@nestjs/config';
 import { documentFrontendApi } from './documentation/swagger';
 
 async function bootstrap() {
+  if (!apiEnabled()) {
+    const context = await NestFactory.createApplicationContext(AppModule, { bufferLogs: true });
+    context.useLogger(context.get(Logger));
+    context.enableShutdownHooks();
+    console.log('Worker process started; no HTTP port is opened.');
+    return;
+  }
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
     rawBody: true,
   });
+
+  app.enableShutdownHooks();
+
+  const origins = (app.get(ConfigService).get<string>('CORS_ORIGINS') ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (origins.length)
+    app.enableCors({
+      origin: origins,
+      credentials: false,
+      methods: ['GET', 'HEAD', 'POST', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Authorization', 'Content-Type', 'x-idempotency-key', 'x-step-up-token'],
+      exposedHeaders: [
+        'Retry-After',
+        'X-RateLimit-Policy',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'X-RateLimit-Limit-IP',
+        'X-RateLimit-Limit-Account',
+      ],
+      maxAge: 600,
+    });
 
   // Use nestjs-pino logger
   app.useLogger(app.get(Logger));

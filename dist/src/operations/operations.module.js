@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OperationsModule = void 0;
+const runtime_mode_1 = require("../config/runtime-mode");
 const common_1 = require("@nestjs/common");
 const paystack_module_1 = require("../paystack/paystack.module");
 const financial_service_1 = require("./financial.service");
@@ -20,7 +21,11 @@ exports.OperationsModule = OperationsModule;
 exports.OperationsModule = OperationsModule = __decorate([
     (0, common_1.Module)({
         imports: [paystack_module_1.PaystackModule, security_module_1.SecurityModule],
-        providers: [financial_service_1.FinancialService, reconciliation_service_1.ReconciliationService, operations_worker_1.OperationsWorker],
+        providers: [
+            financial_service_1.FinancialService,
+            reconciliation_service_1.ReconciliationService,
+            ...((0, runtime_mode_1.workersEnabled)() ? [operations_worker_1.OperationsWorker] : []),
+        ],
         controllers: [operations_controller_1.OperationsController],
         exports: [financial_service_1.FinancialService],
     })

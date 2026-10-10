@@ -27,7 +27,11 @@
     "test:payouts": "node -r ts-node/register test/payouts/integration.cjs",
     "test:operations": "node -r ts-node/register test/operations/integration.cjs",
     "test:security": "node -r ts-node/register test/security/integration.cjs",
-    "db:plans": "node scripts/database-plans.cjs"
+    "db:plans": "node scripts/database-plans.cjs",
+    "start:api": "APP_MODE=api node dist/src/main.js",
+    "start:worker": "APP_MODE=worker node dist/src/main.js",
+    "start:api:dev": "APP_MODE=api nest start --watch",
+    "start:worker:dev": "APP_MODE=worker nest start --watch"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

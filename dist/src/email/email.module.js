@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailModule = void 0;
+const runtime_mode_1 = require("../config/runtime-mode");
 const common_1 = require("@nestjs/common");
 const bullmq_1 = require("@nestjs/bullmq");
 const email_service_1 = require("./email.service");
@@ -21,7 +22,7 @@ exports.EmailModule = EmailModule = __decorate([
                 name: 'email',
             }),
         ],
-        providers: [email_service_1.EmailService, email_processor_1.EmailProcessor],
+        providers: [email_service_1.EmailService, ...((0, runtime_mode_1.workersEnabled)() ? [email_processor_1.EmailProcessor] : [])],
         exports: [email_service_1.EmailService],
     })
 ], EmailModule);

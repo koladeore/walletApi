@@ -4,6 +4,8 @@ The API validates configuration at startup, before serving requests. Errors name
 
 | Setting | Requirement |
 | --- | --- |
+| APP_MODE | `combined` (default), `api`, or `worker`; selected at startup |
+| CORS_ORIGINS | Comma-separated exact HTTP(S) frontend origins; blank disables cross-origin permission |
 | NODE_ENV | Explicitly `development`, `test`, or `production` |
 | DATABASE_URL | PostgreSQL URL with a hostname and database name |
 | DB_POOL_MAX | Per-process pool ceiling, default 10, range 1–100 |
@@ -64,3 +66,5 @@ See [notifications](notifications.md) for persistent in-app notifications and ex
 See [database performance](database-performance.md) for indexes, query-plan inspection, pool limits and the Compose server connection budget.
 
 See [shared rate limits](rate-limits.md) for RATE_* policy settings, proxy trust and Redis outage behavior.
+
+See [runtime modes](runtime-modes.md) for independent API/worker startup, Compose scaling and frontend CORS.

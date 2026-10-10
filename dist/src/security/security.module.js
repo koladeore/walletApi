@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SecurityModule = void 0;
+const runtime_mode_1 = require("../config/runtime-mode");
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const security_service_1 = require("./security.service");
@@ -20,7 +21,12 @@ exports.SecurityModule = SecurityModule;
 exports.SecurityModule = SecurityModule = __decorate([
     (0, common_1.Module)({
         imports: [config_1.ConfigModule],
-        providers: [security_service_1.SecurityService, delivery_service_1.SecurityDeliveryService, security_worker_1.SecurityWorker, step_up_guard_1.StepUpGuard],
+        providers: [
+            security_service_1.SecurityService,
+            delivery_service_1.SecurityDeliveryService,
+            step_up_guard_1.StepUpGuard,
+            ...((0, runtime_mode_1.workersEnabled)() ? [security_worker_1.SecurityWorker] : []),
+        ],
         controllers: [security_controller_1.SecurityController],
         exports: [security_service_1.SecurityService, step_up_guard_1.StepUpGuard],
     })
