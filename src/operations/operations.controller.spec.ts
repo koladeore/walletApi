@@ -21,6 +21,16 @@ describe('Financial operations access', () => {
         {
           provide: PrismaService,
           useValue: {
+            $transaction: (fn: (tx: unknown) => Promise<unknown>) =>
+              fn({
+                $queryRaw: jest.fn(),
+                user: {
+                  findUnique: () =>
+                    Promise.resolve({ id: 'actor', role: 'ADMIN', isActive: true, authVersion: 0 }),
+                },
+                auditLog: { create: jest.fn() },
+              }),
+            auditLog: { create: jest.fn() },
             reconciliationRun: { findMany: read },
             reconciliationIssue: { findMany: read },
             financialCase: { findMany: read },
@@ -36,8 +46,10 @@ describe('Financial operations access', () => {
           const req = ctx.switchToHttp().getRequest<{
             headers: { authorization?: string };
             user?: { id: string; role: string };
+            stepUpAuthVersion?: number;
           }>();
           if (!req.headers.authorization) throw new UnauthorizedException();
+          req.stepUpAuthVersion = 0;
           req.user = {
             id: 'actor',
             role: req.headers.authorization === 'Bearer admin' ? 'ADMIN' : 'USER',
@@ -76,10 +88,11 @@ describe('Financial operations access', () => {
     expect(read).not.toHaveBeenCalled();
   });
   it('allows an administrator to reconcile', async () => {
-    reconcile.mockResolvedValue({ status: 'DIFFERENCES' });
+    reconcile.mockResolvedValue({ id: 'run1', status: 'DIFFERENCES' });
     await request(app.getHttpServer())
       .post('/api/v1/admin/financial-operations/reconcile')
       .auth('admin', { type: 'bearer' })
+      .send({ reason: 'Investigate provider differences' })
       .expect(201);
     expect(reconcile).toHaveBeenCalledTimes(1);
   });

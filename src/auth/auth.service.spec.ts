@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
@@ -13,14 +14,33 @@ describe('Account status enforcement', () => {
   let auth: AuthService;
   let strategy: JwtStrategy;
   let user: User;
-  let refreshHash: string;
+  const sid = 'a90a209b-6e03-4eab-9e06-a38248aa6f27';
+  const jti = 'b90a209b-6e03-4eab-9e06-a38248aa6f27';
   const users = { findByEmail: jest.fn(), findById: jest.fn() };
   const jwt = { signAsync: jest.fn(), verifyAsync: jest.fn() };
-  const tokens = { create: jest.fn(), findMany: jest.fn(), update: jest.fn() };
+  const tokens = {
+    create: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+    findUnique: jest.fn(),
+  };
+  const sessions = {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+  };
+  const tx = {
+    $queryRaw: jest.fn(),
+    user: { findUnique: jest.fn() },
+    authSession: sessions,
+    sessionRefreshToken: tokens,
+    auditLog: { create: jest.fn() },
+  };
 
   beforeAll(async () => {
     user = {
-      id: 'user-id',
+      id: 'c90a209b-6e03-4eab-9e06-a38248aa6f27',
       email: 'test@example.com',
       firstName: 'Test',
       lastName: 'User',
@@ -29,19 +49,42 @@ describe('Account status enforcement', () => {
       role: 'USER',
       authVersion: 0,
       closedAt: null,
+      emailVerifiedAt: null,
+      phone: null,
+      phoneVerifiedAt: null,
+      accountTier: 'BASIC',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    refreshHash = await bcrypt.hash('valid-refresh-token', 4);
   });
 
   beforeEach(async () => {
     jest.resetAllMocks();
     users.findByEmail.mockResolvedValue(user);
     users.findById.mockResolvedValue(user);
-    jwt.verifyAsync.mockResolvedValue({ sub: user.id, email: user.email });
+    jwt.verifyAsync.mockResolvedValue({
+      sub: user.id,
+      email: user.email,
+      sid,
+      jti,
+      kind: 'refresh',
+      authVersion: 0,
+    });
+    tx.user.findUnique.mockImplementation(() => users.findById(user.id) as Promise<User | null>);
+    sessions.findUnique.mockResolvedValue({
+      id: sid,
+      userId: user.id,
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60000),
+    });
+    tokens.findUnique.mockResolvedValue({
+      id: jti,
+      sessionId: sid,
+      tokenHash: createHash('sha256').update('valid-refresh-token').digest('hex'),
+      expiresAt: new Date(Date.now() + 60000),
+      consumedAt: null,
+    });
     jwt.signAsync.mockResolvedValue('new-token');
-    tokens.findMany.mockResolvedValue([{ id: 'session-id', token: refreshHash }]);
     tokens.create.mockResolvedValue({});
     tokens.update.mockResolvedValue({});
     const module = await Test.createTestingModule({
@@ -50,7 +93,14 @@ describe('Account status enforcement', () => {
         JwtStrategy,
         { provide: UsersService, useValue: users },
         { provide: JwtService, useValue: jwt },
-        { provide: PrismaService, useValue: { authToken: tokens } },
+        {
+          provide: PrismaService,
+          useValue: {
+            authToken: tokens,
+            authSession: sessions,
+            $transaction: (fn: (client: typeof tx) => Promise<unknown>) => fn(tx),
+          },
+        },
         {
           provide: ConfigService,
           useValue: {
@@ -85,6 +135,7 @@ describe('Account status enforcement', () => {
   });
 
   it('blocks direct token generation for inactive users', async () => {
+    users.findById.mockResolvedValue({ ...user, isActive: false });
     await expect(auth.generateTokens({ ...user, isActive: false })).rejects.toThrow(
       UnauthorizedException,
     );
@@ -93,8 +144,9 @@ describe('Account status enforcement', () => {
   });
 
   it('rechecks database status on requests using a previously valid token', async () => {
-    const payload = { sub: user.id, email: user.email };
-    await expect(strategy.validate(payload)).resolves.toEqual(user);
+    const payload = { sub: user.id, email: user.email, sid, kind: 'access', authVersion: 0 };
+
+    await expect(strategy.validate(payload)).resolves.toMatchObject({ ...user, sessionId: sid });
     users.findById.mockResolvedValue({ ...user, isActive: false });
     await expect(strategy.validate(payload)).rejects.toThrow(UnauthorizedException);
   });
@@ -117,8 +169,8 @@ describe('Account status enforcement', () => {
     const result = await auth.refreshTokens('valid-refresh-token');
     expect(result.accessToken).toBe('new-token');
     expect(tokens.update).toHaveBeenCalledWith({
-      where: { id: 'session-id' },
-      data: { isRevoked: true },
+      where: { id: jti },
+      data: { consumedAt: expect.any(Date) as Date },
     });
     expect(tokens.create).toHaveBeenCalledTimes(1);
   });
@@ -135,7 +187,7 @@ describe('Account status enforcement', () => {
       UnauthorizedException,
     );
     await expect(
-      strategy.validate({ sub: user.id, email: user.email, authVersion: 2 }),
+      strategy.validate({ sub: user.id, email: user.email, authVersion: 2, sid, kind: 'access' }),
     ).resolves.toHaveProperty('id', user.id);
   });
 

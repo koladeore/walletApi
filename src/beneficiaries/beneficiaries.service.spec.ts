@@ -100,12 +100,14 @@ describe('Verified beneficiaries', () => {
       where: { userId: 'other', id: row.id },
     });
     prisma.beneficiary.findMany.mockResolvedValue([row]);
-    expect(await service.list(active.id)).toEqual([
-      expect.objectContaining({ accountNumberLast4: '4567' }),
-    ]);
+    expect(await service.list(active.id)).toMatchObject({
+      data: [expect.objectContaining({ accountNumberLast4: '4567' })],
+      meta: { hasMore: false, limit: 20, nextCursor: null },
+    });
     expect(prisma.beneficiary.findMany).toHaveBeenCalledWith({
-      where: { userId: active.id },
-      orderBy: { createdAt: 'desc' },
+      where: { AND: [{ userId: active.id }, {}] },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 21,
     });
   });
 });

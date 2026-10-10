@@ -4,7 +4,6 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
 
 describe('UsersService registration', () => {
   const profile = {
@@ -28,13 +27,13 @@ describe('UsersService registration', () => {
   const createUser = jest.fn<Promise<Record<string, unknown>>, [Prisma.UserCreateArgs]>();
   const createWallet = jest.fn();
   const transaction = jest.fn();
-  const sendWelcomeEmail = jest.fn();
+  const createNotification = jest.fn();
 
   beforeEach(async () => {
     jest.resetAllMocks();
     findUnique.mockResolvedValue(null);
     createWallet.mockResolvedValue({});
-    sendWelcomeEmail.mockResolvedValue(undefined);
+    createNotification.mockResolvedValue(undefined);
     // Model Prisma's projection against a stored row containing a password hash.
     createUser.mockImplementation((args: Prisma.UserCreateArgs) => {
       const row = { ...profile, password: args.data.password };
@@ -46,7 +45,11 @@ describe('UsersService registration', () => {
         ),
       );
     });
-    const tx = { user: { create: createUser }, wallet: { create: createWallet } };
+    const tx = {
+      user: { create: createUser },
+      wallet: { create: createWallet },
+      notification: { create: createNotification },
+    };
     transaction.mockImplementation((callback: (client: typeof tx) => Promise<unknown>) =>
       callback(tx),
     );
@@ -57,7 +60,6 @@ describe('UsersService registration', () => {
           provide: PrismaService,
           useValue: { user: { findUnique, findFirst }, $transaction: transaction },
         },
-        { provide: EmailService, useValue: { sendWelcomeEmail } },
       ],
     }).compile();
     service = module.get(UsersService);
@@ -86,14 +88,23 @@ describe('UsersService registration', () => {
     expect(createWallet).toHaveBeenCalledWith({
       data: { userId: profile.id, currency: 'NGN', balanceMinor: 0n },
     });
-    expect(sendWelcomeEmail).toHaveBeenCalledWith(profile.email, profile.firstName);
+    expect(createNotification).toHaveBeenCalledWith({
+      data: {
+        userId: profile.id,
+        eventKey: `welcome:${profile.id}`,
+        kind: 'WELCOME',
+        title: 'Welcome to your wallet',
+        body: 'Your account is ready. Verify your email before sending money.',
+        data: {},
+      },
+    });
   });
 
   it('rejects an existing email without creating a user or sending an email', async () => {
     findUnique.mockResolvedValue({ ...profile, password: 'existing-hash' });
     await expect(service.create(input)).rejects.toThrow(ConflictException);
     expect(transaction).not.toHaveBeenCalled();
-    expect(sendWelcomeEmail).not.toHaveBeenCalled();
+    expect(createNotification).not.toHaveBeenCalled();
   });
   it('does not allow registration input to grant admin privileges', async () => {
     await service.create({ ...input, role: 'ADMIN', isActive: false } as typeof input);

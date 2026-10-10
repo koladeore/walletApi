@@ -2,8 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
-import { NotificationService } from '../notification/notification.service';
+import { LimitsService } from '../limits/limits.service';
 import { WalletService } from './wallet.service';
 
 describe('WalletService simulated funding', () => {
@@ -18,8 +17,7 @@ describe('WalletService simulated funding', () => {
       providers: [
         WalletService,
         { provide: PrismaService, useValue: { $transaction: transaction } },
-        { provide: EmailService, useValue: {} },
-        { provide: NotificationService, useValue: {} },
+        { provide: LimitsService, useValue: { consume: jest.fn() } },
         { provide: ConfigService, useValue: { get: (key: string) => settings[key] } },
       ],
     }).compile();

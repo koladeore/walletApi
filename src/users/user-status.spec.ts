@@ -10,6 +10,7 @@ describe('Admin account status changes', () => {
     $queryRaw: jest.fn(),
     user: { findUnique: jest.fn(), update: jest.fn() },
     authToken: { updateMany: jest.fn() },
+    authSession: { updateMany: jest.fn() },
     auditLog: { create: jest.fn() },
   };
   const transaction = jest.fn();
@@ -47,6 +48,10 @@ describe('Admin account status changes', () => {
     expect(tx.authToken.updateMany).toHaveBeenCalledWith({
       where: { userId: 'target', isRevoked: false },
       data: { isRevoked: true },
+    });
+    expect(tx.authSession.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'target', revokedAt: null },
+      data: { revokedAt: expect.any(Date) as Date, revokeReason: 'ACCOUNT_STATUS_CHANGED' },
     });
     expect(tx.auditLog.create).toHaveBeenCalledWith({
       data: {

@@ -1,3 +1,4 @@
+import { PrismaService } from '../prisma/prisma.service';
 import { StepUpGuard } from '../security/step-up.guard';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -27,7 +28,8 @@ describe('User route access', () => {
     closeAccount: jest.fn(),
   };
   const wallets = { reverseTransaction: jest.fn() };
-  const token = (sub: string, role = 'USER') => jwt.sign({ sub, role });
+  const token = (sub: string, role = 'USER') =>
+    jwt.sign({ sub, role, sid: id, kind: 'access', authVersion: 0 });
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
@@ -35,6 +37,21 @@ describe('User route access', () => {
       controllers: [UsersController, WalletController],
       providers: [
         JwtStrategy,
+        {
+          provide: PrismaService,
+          useValue: {
+            authSession: {
+              findUnique: () =>
+                Promise.resolve({
+                  id,
+                  userId: id,
+                  revokedAt: null,
+                  expiresAt: new Date(Date.now() + 60000),
+                }),
+            },
+            auditLog: { create: jest.fn() },
+          },
+        },
         { provide: WalletService, useValue: wallets },
         { provide: UsersService, useValue: users },
         { provide: ConfigService, useValue: { getOrThrow: () => 'test-only-role-secret' } },
@@ -61,7 +78,10 @@ describe('User route access', () => {
       }),
     );
     users.getProfile.mockResolvedValue(profile);
-    users.getAllUsers.mockResolvedValue([profile]);
+    users.getAllUsers.mockResolvedValue({
+      data: [profile],
+      meta: { limit: 20, hasMore: false, nextCursor: null },
+    });
     users.getWallet.mockResolvedValue({ balance: '0' });
     users.lookupRecipient.mockResolvedValue({ id, firstName: 'Test', lastName: 'User' });
   });

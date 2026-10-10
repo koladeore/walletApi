@@ -74,6 +74,11 @@ jobs:
 
       - name: Set test environment
         run: |
+          echo "NODE_ENV=test" >> "$GITHUB_ENV"
+          echo "APP_MODE=combined" >> "$GITHUB_ENV"
+          echo "AUTH_DELIVERY_MODE=disabled" >> "$GITHUB_ENV"
+          echo "NOTIFICATION_EMAIL_ENABLED=false" >> "$GITHUB_ENV"
+          echo "PAYSTACK_ENABLED=false" >> "$GITHUB_ENV"
           echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/walletdb?schema=public" >> "$GITHUB_ENV"
           echo "REDIS_HOST=127.0.0.1" >> "$GITHUB_ENV"
           echo "REDIS_PORT=6379" >> "$GITHUB_ENV"

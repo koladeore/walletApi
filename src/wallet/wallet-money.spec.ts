@@ -3,8 +3,7 @@ import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { WalletService } from './wallet.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { EmailService } from '../email/email.service';
-import { NotificationService } from '../notification/notification.service';
+import { LimitsService } from '../limits/limits.service';
 import { MAX_MINOR } from '../common/money/money';
 
 describe('Integer wallet transfers', () => {
@@ -16,7 +15,7 @@ describe('Integer wallet transfers', () => {
     walletRequest: { findUnique: jest.fn(), create: jest.fn() },
     $queryRaw: jest.fn(),
   };
-  const send = jest.fn();
+  const consume = jest.fn();
   beforeEach(async () => {
     jest.resetAllMocks();
     tx.user.findUnique
@@ -45,7 +44,7 @@ describe('Integer wallet transfers', () => {
       amountMinor: 9007199254740993n,
       currency: 'NGN',
     });
-    send.mockResolvedValue(undefined);
+    consume.mockResolvedValue(undefined);
     const module = await Test.createTestingModule({
       providers: [
         WalletService,
@@ -53,11 +52,7 @@ describe('Integer wallet transfers', () => {
           provide: PrismaService,
           useValue: { $transaction: (fn: (client: typeof tx) => Promise<unknown>) => fn(tx) },
         },
-        {
-          provide: EmailService,
-          useValue: { sendTransferReceipt: send, sendTransferReceivedEmail: send },
-        },
-        { provide: NotificationService, useValue: { notifyTransferReceived: send } },
+        { provide: LimitsService, useValue: { consume } },
         { provide: ConfigService, useValue: {} },
       ],
     }).compile();
@@ -81,7 +76,7 @@ describe('Integer wallet transfers', () => {
     );
     expect(tx.user.findUnique).not.toHaveBeenCalled();
     expect(tx.wallet.update).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
+    expect(consume).not.toHaveBeenCalled();
   });
   it('rejects legacy references without repeating or disclosing their transaction', async () => {
     tx.transaction.findUnique.mockResolvedValue({ id: 'legacy' });
@@ -89,7 +84,7 @@ describe('Integer wallet transfers', () => {
       'check transaction history',
     );
     expect(tx.wallet.update).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
+    expect(consume).not.toHaveBeenCalled();
   });
   it.each(['', ' ', 'a b', 'x'.repeat(201)])(
     'rejects invalid key %p before taking locks',
@@ -117,7 +112,7 @@ describe('Integer wallet transfers', () => {
     });
     expect(result.amountMinor).toBe('9007199254740993');
     expect(() => JSON.stringify(result)).not.toThrow();
-    expect(send).toHaveBeenCalledWith('s@example.com', '90071992547409.93', 'r@example.com');
+    expect(consume).toHaveBeenCalledWith(tx, 'sender', 9007199254740993n, 'key');
   });
   it('rejects a one-kobo shortfall at a large balance', async () => {
     tx.wallet.findUnique.mockResolvedValue({
