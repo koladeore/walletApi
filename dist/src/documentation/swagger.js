@@ -320,6 +320,7 @@ function documentFrontendApi(document) {
         'post /users/recipient-lookup': 'Recipient',
         'patch /users/{id}/status': 'PublicUser',
         'post /users/{id}/close': 'ClosedAccount',
+        'delete /users/{id}': 'ClosedAccount',
         'get /beneficiaries/banks': 'Banks',
         'post /beneficiaries/resolve': 'ResolvedBank',
         'post /beneficiaries': 'Beneficiary',
@@ -378,7 +379,7 @@ function documentFrontendApi(document) {
         oneOf: [ref('NotificationPage'), ref('NotificationCursorPage')],
     };
     for (const [path, item] of Object.entries(document.paths)) {
-        for (const method of ['get', 'post', 'patch']) {
+        for (const method of ['get', 'post', 'patch', 'delete']) {
             const operation = item[method];
             if (!operation)
                 continue;

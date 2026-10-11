@@ -50,7 +50,7 @@ export function describeAction(action: SecurityAction, details: Record<string, u
     fields(['method', 'path', 'body']);
     if (
       typeof details.method !== 'string' ||
-      !['POST', 'PATCH'].includes(details.method) ||
+      !['POST', 'PATCH', 'DELETE'].includes(details.method) ||
       typeof details.path !== 'string' ||
       !details.body ||
       typeof details.body !== 'object' ||
@@ -64,11 +64,12 @@ export function describeAction(action: SecurityAction, details: Record<string, u
       return invalid();
     }
     if (
-      !/^\/api\/v1\/(users\/[^/]+\/(close|status)|wallet\/transactions\/[^/]+\/reverse|admin\/notification-deliveries\/[^/]+\/retry|admin\/account-controls\/(users\/[^/]+\/(tier|freeze)|flags\/[^/]+\/resolve)|admin\/financial-operations\/(issues\/[^/]+\/resolve|wallets\/[^/]+\/unfreeze|reconcile))$/.test(
+      !/^\/api\/v1\/(users\/[^/]+(?:\/(close|status))?|wallet\/transactions\/[^/]+\/reverse|admin\/notification-deliveries\/[^/]+\/retry|admin\/account-controls\/(users\/[^/]+\/(tier|freeze)|flags\/[^/]+\/resolve)|admin\/financial-operations\/(issues\/[^/]+\/resolve|wallets\/[^/]+\/unfreeze|reconcile))$/.test(
         path,
       )
     )
       invalid();
+    if (details.method === 'DELETE' && !/^\/api\/v1\/users\/[^/]+$/.test(path)) invalid();
     values = [action, details.method, path, stable(details.body)];
     summary = `Staff action ${String(details.method)} ${path}`;
   } else return invalid();

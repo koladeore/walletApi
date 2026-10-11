@@ -66,6 +66,11 @@ export declare class UsersController {
         role: import("@prisma/client").$Enums.Role;
         updatedAt: Date;
     }>;
+    deleteUser(req: AuthenticatedRequest, id: string, dto: FinancialReasonDto): Promise<{
+        id: string;
+        isActive: boolean;
+        closedAt: Date | null;
+    }>;
     closeAccount(req: AuthenticatedRequest, id: string, dto: FinancialReasonDto): Promise<{
         id: string;
         isActive: boolean;

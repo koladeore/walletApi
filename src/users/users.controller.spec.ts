@@ -251,4 +251,31 @@ describe('User route access', () => {
       .expect(400);
     expect(users.updateStatus).not.toHaveBeenCalled();
   });
+  it('allows an admin to soft-delete a user with a reason', async () => {
+    const targetId = 'd90a209b-6e03-4eab-9e06-a38248aa6f27';
+    users.closeAccount.mockResolvedValue({
+      id: targetId,
+      closedAt: new Date('2026-10-11T00:00:00Z'),
+      isActive: false,
+    });
+    await request(app.getHttpServer())
+      .delete(`/api/v1/users/${targetId}`)
+      .auth(token('admin'), { type: 'bearer' })
+      .send({ reason: ' Account deletion requested ' })
+      .expect(200);
+    expect(users.closeAccount).toHaveBeenCalledWith(
+      id,
+      targetId,
+      'Account deletion requested',
+      undefined,
+    );
+  });
+  it('denies an ordinary user access to user deletion', async () => {
+    await request(app.getHttpServer())
+      .delete(`/api/v1/users/${id}`)
+      .auth(token('user'), { type: 'bearer' })
+      .send({ reason: 'Account deletion requested' })
+      .expect(403);
+    expect(users.closeAccount).not.toHaveBeenCalled();
+  });
 });

@@ -29,3 +29,23 @@ Manual verification: use a regular user token on each staff route and expect 403
 Account-tier changes, manual outgoing freezes and activity-flag resolution are also protected admin mutations. See [account limits](account-limits.md). Open activity flags must be resolved before wallet unfreezing.
 
 Notification-delivery recovery is also ADMIN-only, step-up protected and audited. See [delivery recovery](delivery-recovery.md).
+
+## Delete a user
+
+DELETE /api/v1/users/{id} is an admin-only soft deletion using the existing account closure flow. It requires a reason and an ADMIN step-up proof whose method is DELETE, path is the exact user endpoint, and body matches the deletion request. For example:
+
+```json
+{
+  "password": "YOUR_CURRENT_PASSWORD",
+  "action": "ADMIN",
+  "details": {
+    "method": "DELETE",
+    "path": "/api/v1/users/TARGET_USER_UUID",
+    "body": { "reason": "Account deletion requested" }
+  }
+}
+```
+
+Confirm the step-up email code, then call DELETE with x-step-up-token and the same reason body. The response is `{ id, closedAt, isActive: false }`. It blocks further login, revokes sessions, and records ACCOUNT_CLOSED with the acting administrator and reason. Self-deletion, nonzero wallet balance/reservations and invalid credentials are rejected. Already closed accounts return the existing closure result.
+
+This does not hard-delete database rows, anonymize personal data, remove financial history or release the registered email. Admin lists can still show the retained inactive account. Existing POST /users/{id}/close remains available.

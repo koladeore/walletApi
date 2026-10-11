@@ -2,6 +2,7 @@ import { CursorQueryDto } from '../common/pagination/cursor';
 import { FinancialReasonDto } from '../common/dto/financial-reason.dto';
 import {
   Controller,
+  Delete,
   UseInterceptors,
   Get,
   Query,
@@ -95,6 +96,23 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  @Delete(':id')
+  @SensitiveAction('ADMIN')
+  @UseGuards(AdminGuard)
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Soft-delete a settled user account (admin only)',
+    description:
+      'Permanently closes the account and revokes sessions. Retains the user, wallet, financial history and audit records; does not erase personal data or free the email for registration. Requires verified admin email and an ADMIN step-up proof bound to DELETE /api/v1/users/{id} and the exact reason body. Rejects self-deletion and nonzero available/reserved balances. Repeating closure returns the existing closed account.',
+  })
+  deleteUser(
+    @Req() req: AuthenticatedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: FinancialReasonDto,
+  ) {
+    return this.usersService.closeAccount(req.user.id, id, dto.reason, req.stepUpAuthVersion);
   }
 
   @Post(':id/close')

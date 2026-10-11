@@ -349,6 +349,7 @@ export function documentFrontendApi(document: OpenAPIObject) {
     'post /users/recipient-lookup': 'Recipient',
     'patch /users/{id}/status': 'PublicUser',
     'post /users/{id}/close': 'ClosedAccount',
+    'delete /users/{id}': 'ClosedAccount',
     'get /beneficiaries/banks': 'Banks',
     'post /beneficiaries/resolve': 'ResolvedBank',
     'post /beneficiaries': 'Beneficiary',
@@ -413,7 +414,7 @@ export function documentFrontendApi(document: OpenAPIObject) {
     oneOf: [ref('NotificationPage'), ref('NotificationCursorPage')],
   };
   for (const [path, item] of Object.entries(document.paths)) {
-    for (const method of ['get', 'post', 'patch'] as const) {
+    for (const method of ['get', 'post', 'patch', 'delete'] as const) {
       const operation = item[method];
       if (!operation) continue;
       const name = routes[`${method} ${path.replace(/^\/api\/v1/, '')}`];

@@ -59,6 +59,9 @@ let UsersController = class UsersController {
         }
         return user;
     }
+    deleteUser(req, id, dto) {
+        return this.usersService.closeAccount(req.user.id, id, dto.reason, req.stepUpAuthVersion);
+    }
     closeAccount(req, id, dto) {
         return this.usersService.closeAccount(req.user.id, id, dto.reason, req.stepUpAuthVersion);
     }
@@ -128,6 +131,22 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getUserById", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, step_up_guard_1.SensitiveAction)('ADMIN'),
+    (0, common_1.UseGuards)(admin_guard_1.AdminGuard),
+    (0, common_1.HttpCode)(200),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Soft-delete a settled user account (admin only)',
+        description: 'Permanently closes the account and revokes sessions. Retains the user, wallet, financial history and audit records; does not erase personal data or free the email for registration. Requires verified admin email and an ADMIN step-up proof bound to DELETE /api/v1/users/{id} and the exact reason body. Rejects self-deletion and nonzero available/reserved balances. Repeating closure returns the existing closed account.',
+    }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id', new common_1.ParseUUIDPipe())),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, financial_reason_dto_1.FinancialReasonDto]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "deleteUser", null);
 __decorate([
     (0, common_1.Post)(':id/close'),
     (0, step_up_guard_1.SensitiveAction)('ADMIN'),
