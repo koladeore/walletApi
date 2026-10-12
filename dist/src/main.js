@@ -91,7 +91,7 @@ Staff routes require ADMIN. Paystack webhook is provider-only. Error message can
     };
     swagger_1.SwaggerModule.setup('api/docs', app, documentFactory);
     const port = app.get(config_1.ConfigService).getOrThrow('PORT');
-    await app.listen(port);
+    await app.listen(port, '0.0.0.0');
     console.log(`Application is running on: http://localhost:${port}/api/v1`);
     console.log(`Swagger UI is available at: http://localhost:${port}/api/docs`);
 }
