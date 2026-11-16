@@ -74,17 +74,19 @@ jobs:
 
       - name: Set test environment
         run: |
-          echo "NODE_ENV=test" >> "$GITHUB_ENV"
-          echo "APP_MODE=combined" >> "$GITHUB_ENV"
-          echo "AUTH_DELIVERY_MODE=disabled" >> "$GITHUB_ENV"
-          echo "NOTIFICATION_EMAIL_ENABLED=false" >> "$GITHUB_ENV"
-          echo "PAYSTACK_ENABLED=false" >> "$GITHUB_ENV"
-          echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/walletdb?schema=public" >> "$GITHUB_ENV"
-          echo "REDIS_HOST=127.0.0.1" >> "$GITHUB_ENV"
-          echo "REDIS_PORT=6379" >> "$GITHUB_ENV"
-          echo "JWT_SECRET=test_jwt_secret" >> "$GITHUB_ENV"
-          echo "REFRESH_SECRET=test_refresh_secret" >> "$GITHUB_ENV"
-          echo "RESEND_API_KEY=" >> "$GITHUB_ENV"
+          {
+            echo "NODE_ENV=test"
+            echo "APP_MODE=combined"
+            echo "AUTH_DELIVERY_MODE=disabled"
+            echo "NOTIFICATION_EMAIL_ENABLED=false"
+            echo "PAYSTACK_ENABLED=false"
+            echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/walletdb?schema=public"
+            echo "REDIS_HOST=127.0.0.1"
+            echo "REDIS_PORT=6379"
+            echo "JWT_SECRET=test_jwt_secret"
+            echo "REFRESH_SECRET=test_refresh_secret"
+            echo "RESEND_API_KEY="
+          } >> "$GITHUB_ENV"
 
       - name: Generate Prisma client
         run: npx prisma generate
@@ -97,17 +99,16 @@ jobs:
 
       - name: Run tests
         run: npm test -- --runInBand --no-watchman
-
   docker-build:
     needs: test-and-build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+      packages: write
     env:
-      AWS_REGION: us-east-1
-      ECR_REGISTRY: 284267329100.dkr.ecr.us-east-1.amazonaws.com
-      ECR_REPOSITORY: wallet-api
+      REGISTRY: ghcr.io
+      IMAGE_NAME: koladeore/wallet-api
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -124,31 +125,24 @@ jobs:
           docker image inspect wallet-api:${{ github.sha }} \
             --format='user={{.Config.User}} port={{json .Config.ExposedPorts}} command={{json .Config.Cmd}}'
 
-      - name: Configure temporary AWS credentials
+      - name: Log in to GitHub Container Registry
         if: github.event_name == 'push'
-        uses: aws-actions/configure-aws-credentials@v6.2.3
+        uses: docker/login-action@v3
         with:
-          role-to-assume: arn:aws:iam::284267329100:role/GitHubActionsWalletApiEcrPush
-          role-session-name: wallet-api-${{ github.run_id }}
-          aws-region: ${{ env.AWS_REGION }}
-          allowed-account-ids: '284267329100'
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Amazon ECR
-        if: github.event_name == 'push'
-        run: |
-          aws ecr get-login-password --region "$AWS_REGION" \
-            | docker login \
-                --username AWS \
-                --password-stdin "$ECR_REGISTRY"
-
-      - name: Tag and push image to Amazon ECR
+      - name: Tag and push image to GHCR
         if: github.event_name == 'push'
         run: |
           docker tag \
             wallet-api:${{ github.sha }} \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+            "$REGISTRY/$IMAGE_NAME:${{ github.sha }}"
+
           docker tag \
             wallet-api:${{ github.sha }} \
-            "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:latest"
+            "$REGISTRY/$IMAGE_NAME:latest"
+
+          docker push "$REGISTRY/$IMAGE_NAME:${{ github.sha }}"
+          docker push "$REGISTRY/$IMAGE_NAME:latest"
