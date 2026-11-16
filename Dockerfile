@@ -31,6 +31,9 @@ RUN npm prune --omit=dev
 # Keep only production files in the final image.
 FROM base AS production
 
+# Associate the GHCR package with the repository that publishes it.
+LABEL org.opencontainers.image.source="https://github.com/koladeore/walletApi"
+
 ENV NODE_ENV=production
 ENV PORT=3000
 
