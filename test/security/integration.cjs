@@ -60,14 +60,19 @@ async function main(){
     const known=await security.requestReset(user.email);const unknown=await security.requestReset(`missing-${randomUUID()}@example.com`);assert.deepEqual(known,unknown);
     const reset=await prisma.securityChallenge.findFirstOrThrow({where:{userId:user.id,purpose:'RESET'},orderBy:{createdAt:'desc'}});const resetCode=await codeFor(reset.id);
     await prisma.authToken.create({data:{userId:user.id,token:'test-refresh-hash',expiresAt:new Date(Date.now()+600000)}});
-    const strategy=new JwtStrategy(config,{findById:id=>prisma.user.findUnique({where:{id}})});
-    await strategy.validate({sub:user.id,email:user.email,authVersion:0});
+    const session = await prisma.authSession.create({
+      data: { id: randomUUID(), userId: user.id, expiresAt: new Date(Date.now() + 600000) },
+    });
+    const access = { sub: user.id, email: user.email, authVersion: 0, kind: 'access', sid: session.id };
+    const strategy = new JwtStrategy(config, { findById: id => prisma.user.findUnique({ where: { id } }) }, prisma);
+    assert.equal((await strategy.validate(access)).sessionId, session.id);
     const resets=await Promise.allSettled(Array.from({length:2},()=>security.resetPassword(reset.id,resetCode,'new-password-456789')));
     assert.equal(resets.filter(item=>item.status==='fulfilled').length,1);
     const changed=await prisma.user.findUniqueOrThrow({where:{id:user.id}});
     assert.equal(changed.authVersion,1);assert.ok(await bcrypt.compare('new-password-456789',changed.password));
     assert.equal(await prisma.authToken.count({where:{userId:user.id,isRevoked:false}}),0);
-    await assert.rejects(()=>strategy.validate({sub:user.id,email:user.email,authVersion:0}));
+    assert.ok((await prisma.authSession.findUniqueOrThrow({ where: { id: session.id } })).revokedAt);
+    await assert.rejects(() => strategy.validate(access));
     await assert.rejects(()=>security.resetPassword(reset.id,resetCode,'third-password-456789'));
     await assert.rejects(()=>security.authorize(user.id,grant.stepUpToken,'PAYOUT',details));
     const beneficiary=await prisma.beneficiary.create({data:{userId:user.id,accountNumber:'0001234567',bankCode:'058',accountName:'TEST',verifiedAt:new Date()}});

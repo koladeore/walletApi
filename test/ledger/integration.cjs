@@ -7,6 +7,7 @@ const { ConfigService } = require('@nestjs/config');
 const { PrismaService } = require('../../src/prisma/prisma.service');
 const { UsersService } = require('../../src/users/users.service');
 const { WalletService } = require('../../src/wallet/wallet.service');
+const { LimitsService } = require('../../src/limits/limits.service');
 
 async function main() {
   const url = process.env.LEDGER_TEST_DATABASE_URL;
@@ -53,11 +54,12 @@ async function main() {
 
     prisma = new PrismaService(new ConfigService({ DATABASE_URL: url }));
     await prisma.$connect();
-    const noop = async () => {};
-    const service = new WalletService(prisma,
-      { sendTransferReceipt: noop, sendTransferReceivedEmail: noop },
-      { notifyTransferReceived: noop },
-      new ConfigService({ NODE_ENV: 'test', ENABLE_SIMULATED_FUNDING: 'true' }));
+    const config = new ConfigService({ NODE_ENV: 'test', ENABLE_SIMULATED_FUNDING: 'true' });
+    const service = new WalletService(prisma, config, new LimitsService(prisma, config));
+    await prisma.user.updateMany({
+      where: { id: { in: ['alice', 'bob'] } },
+      data: { emailVerifiedAt: new Date() },
+    });
     const firstFunding = await service.fundWallet('bob', '10.50', 'fund-1');
     await service.transferFunds('alice', 'bob@example.com', '1.25', 'transfer-1');
     const balances = (await client.query("SELECT id, \"balanceMinor\" FROM wallets WHERE currency='NGN' ORDER BY id")).rows;
@@ -160,6 +162,7 @@ async function main() {
     // A failed operation leaves no saved success or financial record, so retry can succeed.
     await assert.rejects(()=>service.transferFunds('new','alice@example.com','1','failed-retry')); checks++;
     assert.equal(await prisma.walletRequest.count({where:{key:'failed-retry'}}),0); checks++;
+    await prisma.user.update({ where: { id: 'new' }, data: { emailVerifiedAt: new Date() } });
     await service.fundWallet('new','2','new-fund');
     await service.transferFunds('new','alice@example.com','1','failed-retry'); checks++;
     await assert.rejects(()=>service.fundWallet('bob','1',' bad key ')); checks++;
@@ -173,7 +176,7 @@ async function main() {
     await client.query('SELECT ledger_assert_wallet(id) FROM wallets'); checks++;
 
     await prisma.user.create({data:{id:'admin',email:'admin@example.com',password:'test',role:'ADMIN'}});
-    const users = new UsersService(prisma, {});
+    const users = new UsersService(prisma);
     await prisma.user.create({data:{id:'closing',email:'closing@example.com',password:'test',wallet:{create:{id:'closing-wallet',currency:'NGN'}}}});
     const source = await service.fundWallet('closing','10','closure-funding');
     await assert.rejects(()=>users.closeAccount('admin','closing','Close settled account')); checks++;

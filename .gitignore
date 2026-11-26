@@ -1,10 +1,38 @@
-node_modules
-# Keep environment variables out of version control
+node_modules/
+
+# Local environment files and secrets
 .env
 .env.*
 !.env.example
+/secrets/
+/k8s/secrets/
+*.key
+*.pem
+*.p12
+*.pfx
 
-/generated/prisma
+# Generated output, diagnostics and local data
+/dist/
+/coverage/
+/tmp/
+/output/
+/logs/
+/backups/
+/dumps/
+*.tsbuildinfo
+*.log
+*.log.*
+*.dump
+*.rdb
+*.aof
+*.sqlite
+*.sqlite3
 
-# Legacy generated Prisma client; current client is generated in node_modules.
+# Generated Prisma clients
+/generated/prisma/
 /prisma/generated/
+
+# Local editor and OS files
+.DS_Store
+.idea/
+.vscode/

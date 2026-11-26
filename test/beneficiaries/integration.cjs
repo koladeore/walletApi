@@ -23,7 +23,7 @@ async function main() {
     await assert.rejects(() => service.get(users[1].id, responses[0].id));
     const other = await service.create(users[1].id, input);
     assert.notEqual(other.id, responses[0].id);
-    assert.equal((await service.list(users[1].id)).length, 1);
+    assert.equal((await service.list(users[1].id)).data.length, 1);
     provider.resolveBankAccount = async () => { throw new Error('provider unavailable'); };
     await assert.rejects(() => service.create(users[0].id, { ...input, accountNumber: '9999999999' }));
     assert.equal(await prisma.beneficiary.count({ where: { userId: users[0].id } }), 1);

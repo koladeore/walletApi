@@ -1,102 +1,72 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Wallet API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS wallet backend that demonstrates how to move money consistently, integrate with a payment provider, and deploy the API and background workers independently. The project uses PostgreSQL and Prisma for financial state, Redis and BullMQ for queues and shared rate limits, and Paystack's test environment for payment flows.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Architecture
 
-## Description
+| Component | Responsibility |
+| --- | --- |
+| API | Versioned REST endpoints, JWT authentication, wallet operations, and signed Paystack webhooks |
+| Worker | Funding and payout follow-up, reconciliation, notification delivery, and retries |
+| PostgreSQL | Wallet balances, double-entry journals, payout reservations, idempotency records, and audit trails |
+| Redis | BullMQ jobs and rate limits shared across API replicas |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Native development can run both processes in `APP_MODE=combined`. Docker Compose and the local Kubernetes manifests run separate API and worker workloads. See [runtime modes](docs/runtime-modes.md) and [database performance](docs/database-performance.md) for deployment and connection budgets.
 
-## Project setup
+## Financial workflows and security
 
-```bash
-$ npm install
-```
+- [Ledger](docs/ledger.md) and [money representation](docs/money.md) use integer minor units and database constraints to enforce balanced journal postings.
+- [Transfers](docs/idempotency.md), [funding](docs/paystack-funding.md), and [payouts](docs/payouts.md) use idempotency and transaction locking. Payouts reserve funds while provider outcomes are pending.
+- [Financial operations](docs/financial-operations.md) cover reconciliation, reversals, and provider fees. [Account limits](docs/account-limits.md) and [admin controls](docs/admin-controls.md) cover policy enforcement, freezes, and audit records.
+- [Session security](docs/sessions.md) includes access and refresh tokens, refresh rotation, and session revocation. [Account security](docs/account-security.md) adds email verification, password reset, and step-up approval.
+- The API validates configuration at startup, supports exact-origin CORS, and uses shared Redis rate limits. Production mode blocks simulated funding and requires distinct signing and authentication secrets. Paystack integration accepts test keys only.
 
-## Compile and run the project
+## Run locally with Docker Compose
 
-```bash
-# development
-$ npm run start
+1. Install Docker with Compose. From the repository root, copy `.env.example` to `.env`.
+2. Run the following command three times. Set `JWT_SECRET`, `REFRESH_SECRET`, and `AUTH_SECURITY_SECRET` in `.env` to the three distinct outputs.
 
-# watch mode
-$ npm run start:dev
+   ```bash
+   node -e 'console.log(require("node:crypto").randomBytes(48).toString("hex"))'
+   ```
 
-# production mode
-$ npm run start:prod
-```
+3. Start the stack and check the API.
 
-## Run tests
+   ```bash
+   docker compose up -d --build
+   docker compose ps
+   curl --fail http://localhost:3000/api/v1
+   ```
+
+Open [Swagger UI](http://localhost:3000/api/docs) to explore the API. The stack runs Prisma migrations before starting the API and worker. PostgreSQL and Redis use IPv4 loopback ports for host-side tools and internal service names for container-to-container traffic. Payment integration is disabled by default. See [configuration](docs/configuration.md) for test provider setup and secret handling.
+
+For native development with Node.js 22, configure the same local `.env` and start PostgreSQL and Redis. With Compose, run `docker compose up -d postgres redis` to start just those services. Then run:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm ci
+npx prisma generate
+npx prisma migrate deploy
+npm run start:dev
 ```
 
-## Deployment
-
-For this Wallet API, use the included [Render Blueprint](render.yaml) and
-[Render deployment guide](docs/render-deployment.md) to deploy the API, PostgreSQL
-and Redis and connect a frontend.
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Test and build
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run lint
+npm test -- --runInBand
+npm run build
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Generate the Prisma client before linting or running tests. The PostgreSQL integration suites require `LEDGER_TEST_DATABASE_URL` to target a fresh disposable database whose name starts with `wallet_ledger_test`. Run `npm run test:ledger` first to apply and exercise the migrations against the empty database. Then run `test:funding`, `test:beneficiaries`, `test:payouts`, `test:operations`, and `test:security` with `npm run`. Always keep this database separate from application data.
 
-## Resources
+## Delivery and deployment
 
-Check out a few resources that may come in handy when working with NestJS:
+| Workflow | What the repository provides |
+| --- | --- |
+| GitHub Actions | Lint, Prisma generation and migrations on a test database, Jest, a TypeScript build, and a production image build. Pushes to `main` publish commit-tagged and `latest` images to GHCR. |
+| Docker | A multi-stage [Dockerfile](Dockerfile) builds the Prisma client and TypeScript, prunes development dependencies, and runs as a non-root user. [Compose](compose.yml) starts PostgreSQL, Redis, a migration task, the API, and a worker. |
+| Kubernetes | [Local development manifests](k8s/README.md) demonstrate separate deployments, persistent storage, probes, a migration job, ingress, and CPU-based API autoscaling. They expect locally loaded images and use HTTP ingress for the demo. |
+| AWS | [ECR and GitHub OIDC policy templates](deploy/aws/README.md) show how to scope image-publishing permissions to one ECR repository and one GitHub branch. |
+| Render | The [Render guide](docs/render-deployment.md) describes the development/test blueprint and hosted configuration. |
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Use synthetic accounts and sandbox payment data for portfolio demos. Keep provider and signing secrets in local environment files or a deployment secret store. A shared deployment needs HTTPS, private database and Redis access, least-privilege credentials, and monitoring of application dependencies and background processing.

@@ -3,6 +3,7 @@ const { randomUUID, createHmac } = require('node:crypto');
 const { ConfigService } = require('@nestjs/config');
 const { PrismaService } = require('../../src/prisma/prisma.service');
 const { WalletService } = require('../../src/wallet/wallet.service');
+const { LimitsService } = require('../../src/limits/limits.service');
 const { PaystackService } = require('../../src/paystack/paystack.service');
 const { ConfirmationService } = require('../../src/funding/confirmation.service');
 const { WebhookService } = require('../../src/funding/webhook.service');
@@ -17,8 +18,8 @@ async function main() {
   try {
     const config=new ConfigService({NODE_ENV:'test',ENABLE_SIMULATED_FUNDING:'true',PAYSTACK_ENABLED:'true',PAYSTACK_SECRET_KEY:'sk_test_example123'});
     const paystack=new PaystackService(config);
-    const user=await prisma.user.create({data:{email:`operations-${randomUUID()}@example.com`,password:'test',wallet:{create:{}}},include:{wallet:true}});
-    const other=await prisma.user.create({data:{email:`operations-other-${randomUUID()}@example.com`,password:'test',wallet:{create:{}}},include:{wallet:true}});
+    const user=await prisma.user.create({data:{email:`operations-${randomUUID()}@example.com`,password:'test',emailVerifiedAt:new Date(),wallet:{create:{}}},include:{wallet:true}});
+    const other=await prisma.user.create({data:{email:`operations-other-${randomUUID()}@example.com`,password:'test',emailVerifiedAt:new Date(),wallet:{create:{}}},include:{wallet:true}});
     const funding=await prisma.fundingRequest.create({data:{reference:`fund-${randomUUID()}`,idempotencyKey:randomUUID(),userId:user.id,walletId:user.wallet.id,expectedEmail:user.email,amountMinor:10000n,currency:'NGN'}});
     const payment={reference:funding.reference,amountMinor:'10000',currency:'NGN',domain:'test',status:'success',email:user.email,transactionId:'9876543',feeMinor:'500'};
     await new ConfirmationService(prisma,{verifyPayment:async()=>payment}).confirm(funding.reference);
@@ -31,7 +32,7 @@ async function main() {
     await Promise.all(Array.from({length:5},()=>financial.processCase('REFUND','111')));
     assert.equal((await prisma.wallet.findUniqueOrThrow({where:{id:user.wallet.id}})).balanceMinor,8000n);
     assert.equal(await prisma.financialCase.count({where:{fundingId:funding.id}}),1);
-    const wallets=new WalletService(prisma,{sendTransferReceipt:async()=>{},sendTransferReceivedEmail:async()=>{}},{notifyTransferReceived:async()=>{}},config);
+    const wallets=new WalletService(prisma, config, new LimitsService(prisma, config));
     const priorReservation=await wallets.reserveWithdrawal(user.id,'20',randomUUID());
     await wallets.transferFunds(user.id,other.email,'50',randomUUID());
     verified={...verified,providerId:'112',amountMinor:3000n};

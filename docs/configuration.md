@@ -57,7 +57,7 @@ For a new checkout, copy `.env.example` to `.env` and supply the signing secrets
 
 Apply code changes with `docker compose up -d --build api`. Later environment-only changes use `docker compose up -d api`.
 
-The included PostgreSQL credentials and published database/Redis ports are for local development. They are not a production infrastructure configuration. A real deployment needs private database/Redis access and independently provisioned credentials. Changing POSTGRES_PASSWORD in Compose does not rotate the password in an already initialized PostgreSQL volume; coordinate database credential changes instead of deleting the volume.
+Compose binds PostgreSQL and Redis to IPv4 loopback (127.0.0.1) for host-side development tools. Containers continue to connect over the Compose network using the service names. Shared deployments should use private database and Redis services with independently provisioned credentials. Changing POSTGRES_PASSWORD in Compose does not rotate the password in an already initialized PostgreSQL volume; coordinate database credential changes instead of deleting the volume.
 
 See [account limits](account-limits.md) for policy defaults, shared daily enforcement, investigation flags and admin freeze controls.
 

@@ -3,6 +3,7 @@ const { randomUUID, createHmac } = require('node:crypto');
 const { ConfigService } = require('@nestjs/config');
 const { PrismaService } = require('../../src/prisma/prisma.service');
 const { WalletService } = require('../../src/wallet/wallet.service');
+const { LimitsService } = require('../../src/limits/limits.service');
 const { PayoutsService } = require('../../src/payouts/payouts.service');
 const { PaystackService } = require('../../src/paystack/paystack.service');
 const { WebhookService } = require('../../src/funding/webhook.service');
@@ -15,10 +16,10 @@ async function main() {
   try {
     const config = new ConfigService({ NODE_ENV: 'test', ENABLE_SIMULATED_FUNDING: 'true', PAYSTACK_ENABLED: 'true', PAYSTACK_SECRET_KEY: 'sk_test_example123' });
     const paystack = new PaystackService(config);
-    const user = await prisma.user.create({ data: { email: `payout-${randomUUID()}@example.com`, password: 'test', wallet: { create: {} } }, include: { wallet: true } });
+    const user = await prisma.user.create({ data: { email: `payout-${randomUUID()}@example.com`, password: 'test', emailVerifiedAt: new Date(), wallet: { create: {} } }, include: { wallet: true } });
     const beneficiary = await prisma.beneficiary.create({ data: { userId: user.id, bankCode: '058', accountNumber: '0001234567', accountName: 'TEST NAME', verifiedAt: new Date() } });
-    const noop = async () => {};
-    const walletService = new WalletService(prisma, { sendTransferReceipt: noop }, {}, config);
+    const limits = new LimitsService(prisma, config);
+    const walletService = new WalletService(prisma, config, limits);
     await walletService.fundWallet(user.id, '1000', randomUUID());
     let submissions = 0;
     let status = 'pending';
@@ -33,7 +34,7 @@ async function main() {
         return { reference, amountMinor: p.amountMinor.toString(), currency: 'NGN', domain: 'test', status, transferCode: 'TRF_' + reference.replaceAll('-', ''), recipientCode: 'RCP_test', bankCode: p.bankCode, accountNumber: p.accountNumber, ...mismatch };
       },
     };
-    const service = new PayoutsService(prisma, paystack, provider);
+    const service = new PayoutsService(prisma, paystack, provider, limits);
     const balances = async (balance, reserved) => {
       const wallet = await prisma.wallet.findUniqueOrThrow({ where: { id: user.wallet.id } });
       assert.equal(wallet.balanceMinor, BigInt(balance)); assert.equal(wallet.reservedMinor, BigInt(reserved));
@@ -110,6 +111,18 @@ async function main() {
     const uncertainRow = await prisma.payout.findUniqueOrThrow({ where: { reference: uncertain.reference } });
     await assert.rejects(() => prisma.withdrawalReservation.update({ where: { id: uncertainRow.reservationId }, data: { status: 'RELEASED' } }));
     await balances(100000, 30000);
+    const notifications = await prisma.notification.findMany({
+      where: { userId: user.id, kind: { startsWith: 'PAYOUT_' } },
+      orderBy: [{ kind: 'asc' }, { eventKey: 'asc' }],
+    });
+    assert.deepEqual(notifications.map(({ kind, title }) => ({ kind, title })), [
+      { kind: 'PAYOUT_FAILED', title: 'Payout failed' },
+      { kind: 'PAYOUT_REVERSED', title: 'Payout reversed' },
+      { kind: 'PAYOUT_REVERSED', title: 'Payout reversed' },
+      { kind: 'PAYOUT_SUCCESS', title: 'Payout success' },
+    ]);
+    assert.equal(notifications.filter(({ data }) => data.reference === reference).length, 2);
+    assert.ok(notifications.every(({ data }) => data.reference !== uncertain.reference));
     console.log('Payout database checks passed: atomic reservations, concurrent duplicate requests, success capture, definitive failure release, reversal credit once, signed duplicate reversal events, timeout retention, no resubmission, ownership, overspend prevention, and balance/ledger consistency.');
   } finally { await prisma.$disconnect(); }
 }

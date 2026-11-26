@@ -126,7 +126,7 @@ describe('Paystack test integration', () => {
     { ...checkout, reference: 'wrong-reference' },
     { ...checkout, authorization_url: 'https://evil.example/test' },
     { ...checkout, authorization_url: 'http://checkout.paystack.com/test' },
-    { ...checkout, authorization_url: 'https://private@checkout.paystack.com/test' },
+    { ...checkout, authorization_url: 'https://fixture-user@checkout.paystack.com/test' },
     { ...checkout, access_code: '' },
   ])('rejects malformed checkout responses', async (data) => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ status: true, data })));

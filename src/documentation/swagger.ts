@@ -1,8 +1,4 @@
-import type { OpenAPIObject } from '@nestjs/swagger';
-import type {
-  SchemaObject,
-  ResponseObject,
-} from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
+import type { OpenAPIObject, ResponseObject, SchemaObject } from '@nestjs/swagger';
 
 const string = (example: string, description?: string): SchemaObject => ({
   type: 'string',
