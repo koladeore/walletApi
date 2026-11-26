@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-worker
+  namespace: wallet
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: wallet-worker
+
+  template:
+    metadata:
+      labels:
+        app: wallet-worker
+
+    spec:
+      containers:
+        - name: wallet-worker
+          image: wallet-api:local
+          imagePullPolicy: Never
+
+          command:
+            - node
+            - dist/src/main.js
+
+          envFrom:
+            - configMapRef:
+                name: wallet-config
+            - secretRef:
+                name: wallet-secret
+
+          env:
+            - name: APP_MODE
+              value: "worker"
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
